@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Artale 羅茱平台助手｜PeerJS 同步版</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     :root {
       --bg: #0b1220;
@@ -249,43 +250,23 @@
       color: #dbeafe;
     }
 
-    .player-box.colorized,
-    .player-head.colorized,
-    .pick-cell.has-value {
-      border-color: rgba(var(--slot-rgb, 139,92,246), .34);
-      background: rgba(var(--slot-rgb, 139,92,246), .12);
-    }
+    .player-box.player-p1,
+    .player-head.player-p1,
+    .pick-cell.player-p1.has-value { border-color: rgba(var(--p1-rgb), .34); background: rgba(var(--p1-rgb), .12); }
+    .player-box.player-p2,
+    .player-head.player-p2,
+    .pick-cell.player-p2.has-value { border-color: rgba(var(--p2-rgb), .34); background: rgba(var(--p2-rgb), .12); }
+    .player-box.player-p3,
+    .player-head.player-p3,
+    .pick-cell.player-p3.has-value { border-color: rgba(var(--p3-rgb), .34); background: rgba(var(--p3-rgb), .12); }
+    .player-box.player-p4,
+    .player-head.player-p4,
+    .pick-cell.player-p4.has-value { border-color: rgba(var(--p4-rgb), .34); background: rgba(var(--p4-rgb), .12); }
 
-    .player-box.colorized input {
-      border-color: rgba(var(--slot-rgb, 139,92,246), .28);
-    }
-
-    .color-picker-row {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
-
-    .color-dot {
-      width: 28px;
-      height: 28px;
-      border-radius: 10px;
-      border: 2px solid transparent;
-      background: var(--swatch, #8b5cf6);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
-      cursor: pointer;
-    }
-
-    .color-dot.selected {
-      border-color: #ffffff;
-      box-shadow: 0 0 0 2px rgba(255,255,255,.15);
-    }
-
-    .color-dot:disabled {
-      opacity: .38;
-      cursor: not-allowed;
-    }
+    .player-box.player-p1 input { border-color: rgba(var(--p1-rgb), .28); }
+    .player-box.player-p2 input { border-color: rgba(var(--p2-rgb), .28); }
+    .player-box.player-p3 input { border-color: rgba(var(--p3-rgb), .28); }
+    .player-box.player-p4 input { border-color: rgba(var(--p4-rgb), .28); }
 
     .help-line {
       font-size: 11px;
@@ -305,31 +286,51 @@
     }
 
     .board-scroll {
-      display: grid;
-      gap: 8px;
-    }
-
-    .matrix {
-      min-width: 0;
-      display: grid;
-      gap: 8px;
-    }
-
-    .shared-floor-card {
-      display: grid;
-      grid-template-columns: 62px 1fr;
-      gap: 8px;
-      align-items: center;
-      padding: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       border: 1px solid var(--line);
       border-radius: 14px;
       background: var(--panel-2);
     }
 
-    .floor-cell {
+    .matrix { min-width: 620px; }
+    .matrix-head, .matrix-row {
       display: grid;
-      gap: 6px;
-      justify-items: center;
+      grid-template-columns: 70px repeat(4, minmax(110px, 1fr));
+      align-items: center;
+    }
+
+    .matrix-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #10203a;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .matrix-head > div,
+    .matrix-row > div {
+      padding: 8px 6px;
+      min-width: 0;
+    }
+
+    .matrix-head .player-head-col {
+      font-size: 12px;
+      font-weight: 900;
+      text-align: center;
+      color: #dbeafe;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .matrix-row { border-bottom: 1px solid rgba(255,255,255,.05); }
+    .matrix-row:last-child { border-bottom: 0; }
+
+    .floor-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .floor-badge {
@@ -346,78 +347,48 @@
       color: #e8f0ff;
     }
 
-    .floor-count {
-      font-size: 10px;
-      color: var(--muted);
-      text-align: center;
-    }
-
-    .shared-pick-cell {
+    .pick-cell {
       width: 100%;
       min-width: 0;
-      padding: 5px;
+      padding: 4px;
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,.06);
       background: rgba(255,255,255,.02);
+      transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
     }
 
-    .shared-pick-grid {
+    .pick-cell.has-value {
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .pick-cell.player-p1.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p1-rgb), .16); }
+    .pick-cell.player-p2.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p2-rgb), .16); }
+    .pick-cell.player-p3.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p3-rgb), .16); }
+    .pick-cell.player-p4.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p4-rgb), .16); }
+
+    .pick-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 6px;
+      gap: 4px;
     }
 
-    .shared-pick-btn {
-      min-height: 46px;
-      padding: 6px 4px;
-      border-radius: 11px;
+    .pick-btn {
+      min-height: 34px;
+      padding: 0;
+      border-radius: 9px;
       border: 1px solid rgba(255,255,255,.08);
       background: #0d1525;
       color: var(--muted);
-      display: grid;
-      align-content: center;
-      justify-items: center;
-      gap: 2px;
-      text-align: center;
-    }
-
-    .shared-pick-btn .num {
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 900;
-      line-height: 1;
     }
 
-    .shared-pick-btn .owner {
-      font-size: 10px;
-      line-height: 1.1;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    .pick-btn.active { color: white; border-color: rgba(255,255,255,.16); }
+    .pick-cell.player-p1 .pick-btn.active { background: linear-gradient(180deg, var(--p1), var(--p1-2)); box-shadow: 0 6px 14px rgba(var(--p1-rgb), .25); }
+    .pick-cell.player-p2 .pick-btn.active { background: linear-gradient(180deg, var(--p2), var(--p2-2)); box-shadow: 0 6px 14px rgba(var(--p2-rgb), .25); }
+    .pick-cell.player-p3 .pick-btn.active { background: linear-gradient(180deg, var(--p3), var(--p3-2)); box-shadow: 0 6px 14px rgba(var(--p3-rgb), .25); }
+    .pick-cell.player-p4 .pick-btn.active { background: linear-gradient(180deg, var(--p4), var(--p4-2)); box-shadow: 0 6px 14px rgba(var(--p4-rgb), .25); }
 
-    .shared-pick-btn.claimed {
-      color: white;
-      border-color: rgba(255,255,255,.16);
-      background: linear-gradient(180deg, var(--slot-color, #8b5cf6), var(--slot-color-2, #7c3aed));
-      box-shadow: 0 6px 14px rgba(var(--slot-rgb, 139,92,246), .25);
-    }
-
-    .shared-pick-btn.mine {
-      box-shadow: 0 0 0 2px rgba(255,255,255,.2), 0 6px 14px rgba(var(--slot-rgb, 139,92,246), .25);
-    }
-
-    .shared-pick-btn.locked {
-      opacity: .9;
-    }
-
-    .shared-pick-btn.empty:hover:not(:disabled) {
-      background: #13203a;
-      color: #dbeafe;
-      border-color: rgba(79,140,255,.28);
-    }
-
-    .shared-pick-btn:disabled {
+    .pick-btn:disabled {
       opacity: .35;
       cursor: not-allowed;
     }
@@ -481,23 +452,25 @@
       .players-grid {
         grid-template-columns: 1fr 1fr;
       }
-      .shared-floor-card {
-        grid-template-columns: 54px 1fr;
-        gap: 6px;
-        padding: 7px;
+      .matrix {
+        min-width: 560px;
       }
-      .shared-pick-grid {
-        gap: 4px;
+      .matrix-head, .matrix-row {
+        grid-template-columns: 62px repeat(4, minmax(98px, 1fr));
       }
-      .shared-pick-btn {
-        min-height: 42px;
-        padding: 5px 3px;
+      .matrix-head > div,
+      .matrix-row > div {
+        padding: 7px 5px;
       }
-      .shared-pick-btn .num {
-        font-size: 14px;
+      .pick-cell {
+        padding: 3px;
       }
-      .shared-pick-btn .owner {
-        font-size: 9px;
+      .pick-grid {
+        gap: 3px;
+      }
+      .pick-btn {
+        min-height: 30px;
+        font-size: 12px;
       }
     }
   </style>
@@ -507,7 +480,13 @@
     <section class="card header">
       <div>
         <h1 class="title">Artale 羅茱平台助手</h1>
-        <div class="sub">建立或加入房間後即可開始記錄平台。</div>
+        <div class="sub">PeerJS 房間同步版｜房主建立房號、其他人加入同房｜直接點 1~4 上色｜玩家固定顏色。</div>
+      </div>
+      <div class="mini-chips">
+        <span class="chip">4 人共用</span>
+        <span class="chip">即時同步</span>
+        <span class="chip">房主廣播</span>
+        <span class="chip">點擊上色</span>
       </div>
     </section>
 
@@ -551,7 +530,7 @@
         </div>
 
         <div class="help-line">
-          可自行修改名稱與顏色；同房成員會看到最新設定。
+          提醒：這版是 PeerJS 連線。若同房跨裝置仍失敗，通常和網路環境或 P2P 打洞有關，先重試建立／加入一次。
         </div>
       </div>
     </section>
@@ -559,7 +538,7 @@
     <section class="card">
       <div class="compact-head">
         <h2 class="section-title" style="margin:0;">玩家欄位</h2>
-        <div class="hint">可改名稱與顏色｜平台選位改為每層共用</div>
+        <div class="hint">每人固定一欄｜成員僅能改自己的欄位，房主可管理全部</div>
       </div>
       <div class="players-grid" id="playerInputs"></div>
     </section>
@@ -567,7 +546,7 @@
     <section class="card board-card">
       <div class="board-toolbar">
         <h2 class="section-title" style="margin:0;">平台記錄</h2>
-        <div class="hint">每層共用一組按鈕｜同一數字不可重複被不同人選</div>
+        <div class="hint">點 1~4 直接填色｜再點一次可清除</div>
       </div>
       <div class="board-scroll">
         <div class="matrix" id="boardBody"></div>
@@ -590,25 +569,11 @@
     const SLOT_KEYS = ["p1", "p2", "p3", "p4"];
     const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
     const DISPLAY_FLOORS = [...FLOORS].reverse();
-    const COLOR_OPTIONS = {
-      purple: { label: "紫色", color: "#8b5cf6", color2: "#7c3aed", rgb: "139,92,246" },
-      green:  { label: "綠色", color: "#22c55e", color2: "#16a34a", rgb: "34,197,94" },
-      yellow: { label: "黃色", color: "#facc15", color2: "#eab308", rgb: "250,204,21" },
-      red:    { label: "紅色", color: "#ef4444", color2: "#dc2626", rgb: "239,68,68" }
-    };
-
-    const DEFAULT_SLOT_COLORS = {
-      p1: "purple",
-      p2: "green",
-      p3: "yellow",
-      p4: "red"
-    };
-
     const SLOT_META = {
-      p1: { label: "玩家1", className: "player-p1" },
-      p2: { label: "玩家2", className: "player-p2" },
-      p3: { label: "玩家3", className: "player-p3" },
-      p4: { label: "玩家4", className: "player-p4" }
+      p1: { label: "玩家1", color: "#4f8cff", className: "player-p1" },
+      p2: { label: "玩家2", color: "#22c55e", className: "player-p2" },
+      p3: { label: "玩家3", color: "#f59e0b", className: "player-p3" },
+      p4: { label: "玩家4", color: "#ef5da8", className: "player-p4" }
     };
 
     const $ = (id) => document.getElementById(id);
@@ -664,9 +629,9 @@
     function sanitizeRoom(value) {
       return String(value || "")
         .trim()
-        .replace(/\s+/g, "")
-        .replace(/[^A-Za-z0-9\-_]/g, "")
-        .slice(0, 80);
+        .toUpperCase()
+        .replace(/[^A-Z0-9\-]/g, "")
+        .slice(0, 40);
     }
 
     function sanitizeNick(value) {
@@ -726,11 +691,14 @@
 
     function saveLocalPrefs() {
       localStorage.setItem("rjpq_peerjs_nick", dom.nicknameInput.value.trim());
+      localStorage.setItem("rjpq_peerjs_room", dom.roomInput.value.trim());
     }
 
     function restoreLocalPrefs() {
       const nick = localStorage.getItem("rjpq_peerjs_nick") || "";
+      const room = localStorage.getItem("rjpq_peerjs_room") || "";
       if (nick) dom.nicknameInput.value = nick;
+      if (room) dom.roomInput.value = room;
     }
 
     function emptyAnswersForSlot(slot) {
@@ -744,40 +712,12 @@
       return SLOT_KEYS.map((slot) => state.participants[slot]).filter(Boolean);
     }
 
-    function getColorKey(slot) {
-      return state.participants[slot]?.colorKey || DEFAULT_SLOT_COLORS[slot] || "purple";
-    }
-
-    function getTheme(slot) {
-      return COLOR_OPTIONS[getColorKey(slot)] || COLOR_OPTIONS.purple;
-    }
-
-    function themeStyle(slot) {
-      const theme = getTheme(slot);
-      return `--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};`;
-    }
-
     function getSlotName(slot) {
       return state.participants[slot]?.name || SLOT_META[slot].label;
     }
 
     function getAnswer(floor, slot) {
       return state.answers[`${floor}:${slot}`] || "";
-    }
-
-    function getSelectedSlotByValue(floor, value, excludeSlot = "") {
-      const target = String(value || "");
-      if (!target) return "";
-      return SLOT_KEYS.find((slot) => slot !== excludeSlot && getAnswer(floor, slot) === target) || "";
-    }
-
-    function getFloorSelections(floor) {
-      const result = {};
-      SLOT_KEYS.forEach((slot) => {
-        const value = getAnswer(floor, slot);
-        if (value) result[value] = slot;
-      });
-      return result;
     }
 
     function setAnswerLocal(floor, slot, value) {
@@ -851,10 +791,6 @@
         const slot = participant.slot;
         const chip = document.createElement("span");
         chip.className = `presence-chip${participant.isHost ? " host" : ""}`;
-        const theme = getTheme(slot);
-        chip.style.borderColor = `rgba(${theme.rgb}, .34)`;
-        chip.style.background = `rgba(${theme.rgb}, .14)`;
-        chip.style.color = theme.color;
         chip.textContent = `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}`;
         dom.presenceList.appendChild(chip);
       });
@@ -866,8 +802,7 @@
         const meta = SLOT_META[slot];
         const participant = state.participants[slot];
         const box = document.createElement("div");
-        box.className = `player-box colorized ${meta.className}`;
-        box.style.cssText = themeStyle(slot);
+        box.className = `player-box ${meta.className}`;
 
         const isMine = mySlot === slot;
         const canEdit = canEditSlot(slot) && !!participant;
@@ -875,27 +810,14 @@
           ? (participant.isHost ? "房主" : (isMine ? "我的欄位" : "隊友"))
           : "空位";
 
-        const colorButtons = Object.entries(COLOR_OPTIONS).map(([key, option]) => `
-          <button
-            type="button"
-            class="color-dot ${getColorKey(slot) === key ? "selected" : ""}"
-            data-slot="${slot}"
-            data-color="${key}"
-            style="--swatch:${option.color}"
-            title="${option.label}"
-            ${canEdit ? "" : "disabled"}
-          ></button>
-        `).join("");
-
         box.innerHTML = `
-          <div class="player-head colorized ${meta.className}" style="${themeStyle(slot)}">
+          <div class="player-head ${meta.className}">
             <div class="player-title">${meta.label}</div>
             <div class="player-role ${isMine ? "me" : ""}">${headRole}</div>
           </div>
           <label class="label" for="name-${slot}">顯示名稱</label>
           <input id="name-${slot}" type="text" maxlength="20" value="${participant ? escapeHtml(participant.name) : ""}" placeholder="${meta.label}" ${canEdit ? "" : "readonly"} />
-          <div class="help-line">顏色：${colorName(getColorKey(slot))}${participant ? `｜ID ${participant.peerId.slice(0, 8)}` : ""}</div>
-          <div class="color-picker-row">${colorButtons}</div>
+          <div class="help-line">固定色：${colorName(meta.color)}${participant ? `｜ID ${participant.peerId.slice(0, 8)}` : ""}</div>
         `;
         dom.playerInputs.appendChild(box);
 
@@ -904,12 +826,6 @@
           const next = sanitizeNick(input.value) || meta.label;
           input.value = next;
           renameSlot(slot, next);
-        });
-
-        box.querySelectorAll(".color-dot").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            changeSlotColor(slot, btn.dataset.color);
-          });
         });
       });
     }
@@ -930,77 +846,65 @@
     }
 
     function renderBoard() {
-      const rows = DISPLAY_FLOORS.map((floor) => {
-        const selections = getFloorSelections(floor);
-        const count = Object.keys(selections).length;
+      const headNames = SLOT_KEYS.map((slot) => getSlotName(slot));
+      const head = `
+        <div class="matrix-head">
+          <div class="floor-cell">樓層</div>
+          ${SLOT_KEYS.map((slot, idx) => `<div class="player-head-col ${SLOT_META[slot].className}">${escapeHtml(headNames[idx])}</div>`).join("")}
+        </div>
+      `;
 
-        const buttons = [1, 2, 3, 4].map((n) => {
-          const value = String(n);
-          const ownerSlot = selections[value] || "";
-          const ownerName = ownerSlot ? getSlotName(ownerSlot) : "可選";
-          const theme = ownerSlot ? getTheme(ownerSlot) : null;
-          const classes = ["shared-pick-btn", ownerSlot ? "claimed" : "empty"];
-          if (ownerSlot && ownerSlot === mySlot) classes.push("mine");
-          if (ownerSlot && ownerSlot !== mySlot) classes.push("locked");
-          const style = theme
-            ? `style="--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};"`
-            : "";
-          const disabled = !roomId || !mySlot ? "disabled" : "";
+      const rows = DISPLAY_FLOORS.map((floor) => {
+        const cells = SLOT_KEYS.map((slot) => {
+          const meta = SLOT_META[slot];
+          const value = getAnswer(floor, slot);
+          const disabled = !canEditSlot(slot) || !state.participants[slot];
           return `
-            <button
-              type="button"
-              class="${classes.join(" ")}" ${style}
-              data-floor="${floor}"
-              data-value="${value}"
-              data-owner-slot="${ownerSlot}"
-              ${disabled}
-            >
-              <span class="num">${value}</span>
-              <span class="owner">${escapeHtml(ownerName)}</span>
-            </button>
+            <div class="pick-cell ${meta.className} ${value ? "has-value" : ""}">
+              <div class="pick-grid">
+                ${[1,2,3,4].map((n) => `
+                  <button
+                    class="pick-btn ${value === String(n) ? "active" : ""}"
+                    data-floor="${floor}"
+                    data-slot="${slot}"
+                    data-value="${n}"
+                    ${disabled ? "disabled" : ""}
+                  >${n}</button>
+                `).join("")}
+              </div>
+            </div>
           `;
         }).join("");
 
         return `
-          <div class="shared-floor-card">
-            <div class="floor-cell">
-              <span class="floor-badge">${floor}F</span>
-              <span class="floor-count">${count}/4</span>
-            </div>
-            <div class="shared-pick-cell">
-              <div class="shared-pick-grid">${buttons}</div>
-            </div>
+          <div class="matrix-row">
+            <div class="floor-cell"><span class="floor-badge">${floor}F</span></div>
+            ${cells}
           </div>
         `;
       }).join("");
 
-      dom.boardBody.innerHTML = rows;
+      dom.boardBody.innerHTML = `${head}${rows}`;
 
-      dom.boardBody.querySelectorAll(".shared-pick-btn[data-floor][data-value]").forEach((btn) => {
+      dom.boardBody.querySelectorAll(".pick-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           const floor = Number(btn.dataset.floor);
-          const value = String(btn.dataset.value || "");
-          const ownerSlot = btn.dataset.ownerSlot || "";
-
-          if (!roomId || !mySlot) {
-            showToast("請先建立或加入房間");
-            return;
-          }
-
-          if (ownerSlot && ownerSlot !== mySlot) {
-            showToast(`${getSlotName(ownerSlot)} 已選 ${value}`);
-            return;
-          }
-
-          const current = getAnswer(floor, mySlot);
-          const nextValue = current === value ? "" : value;
-          updateAnswer(mySlot, floor, nextValue);
+          const slot = btn.dataset.slot;
+          const nextValue = btn.dataset.value;
+          const current = getAnswer(floor, slot);
+          updateAnswer(slot, floor, current === nextValue ? "" : nextValue);
         });
       });
     }
 
-    function colorName(colorKey) {
-      return COLOR_OPTIONS[colorKey]?.label || "紫色";
+    function colorName(hex) {
+      const map = {
+        "#4f8cff": "藍",
+        "#22c55e": "綠",
+        "#f59e0b": "橘",
+        "#ef5da8": "粉"
+      };
+      return map[hex] || hex;
     }
 
     function escapeHtml(str) {
@@ -1040,33 +944,9 @@
       return SLOT_KEYS.find((slot) => !state.participants[slot]) || "";
     }
 
-    let peerScriptPromise = null;
-    let peerLifecycleId = 0;
-
-    function ensurePeerJsLoaded() {
-      if (window.Peer) return Promise.resolve();
-      if (peerScriptPromise) return peerScriptPromise;
-
-      peerScriptPromise = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js";
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => {
-          peerScriptPromise = null;
-          reject(new Error("PEERJS_LOAD_FAILED"));
-        };
-        document.head.appendChild(script);
-      });
-
-      return peerScriptPromise;
-    }
-
-    async function createPeer(peerId) {
-      await ensurePeerJsLoaded();
+    function createPeer(peerId) {
       return new Peer(peerId || undefined, {
         debug: 1,
-        pingInterval: 4000,
         config: {
           iceServers: [
             { urls: "stun:stun.l.google.com:19302" },
@@ -1077,7 +957,6 @@
     }
 
     function destroyPeer() {
-      peerLifecycleId += 1;
       if (hostConn) {
         try { hostConn.close(); } catch (_) {}
         hostConn = null;
@@ -1107,14 +986,14 @@
       localPeer.on("error", (err) => {
         console.error(err);
         if (err.type === "unavailable-id") {
-          showToast("房號已被使用，請換一個房號");
+          showToast("房號已被使用，請換一個");
           if (isHost && !myPeerId) {
             const keepRoom = dom.roomInput.value;
             destroyPeer();
             dom.roomInput.value = keepRoom;
           }
         } else if (err.type === "peer-unavailable") {
-          showToast("找不到房號，請確認房主仍在線");
+          showToast("找不到房號，請確認是否正確");
           if (!isHost && !myPeerId) {
             const keepRoom = dom.roomInput.value;
             destroyPeer();
@@ -1127,13 +1006,7 @@
       });
 
       localPeer.on("disconnected", () => {
-        setStatusText(dom.statusSync, isHost ? "房主重新掛線中" : "重新連線中", "warn-text");
-        try { localPeer.reconnect(); } catch (_) {}
-        renderStatus();
-      });
-
-      localPeer.on("close", () => {
-        renderStatus();
+        setStatusText(dom.statusSync, "連線中斷", "danger-text");
       });
     }
 
@@ -1179,8 +1052,7 @@
           slot: freeSlot,
           name: requestedName,
           peerId: conn.peer,
-          isHost: false,
-          colorKey: DEFAULT_SLOT_COLORS[freeSlot]
+          isHost: false
         };
         guestConnections.set(conn.peer, { conn, slot: freeSlot });
         conn.send({
@@ -1204,27 +1076,11 @@
         return;
       }
 
-      if (msg.type === "SET_COLOR") {
-        if (COLOR_OPTIONS[msg.colorKey]) {
-          state.participants[senderSlot].colorKey = msg.colorKey;
-          broadcastState();
-        }
-        return;
-      }
-
       if (msg.type === "SET_ANSWER") {
         const floor = Number(msg.floor);
         const value = String(msg.value || "");
         if (!FLOORS.includes(floor)) return;
         if (value && !["1", "2", "3", "4"].includes(value)) return;
-        if (value) {
-          const occupiedBy = getSelectedSlotByValue(floor, value, senderSlot);
-          if (occupiedBy) {
-            conn.send({ type: "ACTION_REJECT", reason: `${getSlotName(occupiedBy)} 已選 ${value}` });
-            conn.send({ type: "STATE_SYNC", state });
-            return;
-          }
-        }
         setAnswerLocal(floor, senderSlot, value);
         broadcastState();
         return;
@@ -1296,11 +1152,6 @@
         return;
       }
 
-      if (msg.type === "ACTION_REJECT") {
-        showToast(msg.reason || "此數字已被其他人選走");
-        return;
-      }
-
       if (msg.type === "STATE_SYNC" && msg.state) {
         state = msg.state;
         const found = findSlotByPeerId(myPeerId);
@@ -1341,32 +1192,12 @@
       }
     }
 
-    function changeSlotColor(slot, colorKey) {
-      if (!roomId || !state.participants[slot]) return;
-      if (!canEditSlot(slot)) return;
-      if (!COLOR_OPTIONS[colorKey]) return;
-
-      if (isHost) {
-        state.participants[slot].colorKey = colorKey;
-        broadcastState();
-      } else if (slot === mySlot) {
-        sendToHost({ type: "SET_COLOR", colorKey });
-      }
-    }
-
     function updateAnswer(slot, floor, value) {
-      if (!roomId || !mySlot || slot !== mySlot) return;
-      if (value) {
-        const occupiedBy = getSelectedSlotByValue(floor, value, slot);
-        if (occupiedBy) {
-          showToast(`${getSlotName(occupiedBy)} 已選 ${value}`);
-          return;
-        }
-      }
+      if (!roomId || !canEditSlot(slot)) return;
       if (isHost) {
         setAnswerLocal(floor, slot, value);
         broadcastState();
-      } else {
+      } else if (slot === mySlot) {
         sendToHost({ type: "SET_ANSWER", floor, value });
       }
     }
@@ -1425,7 +1256,7 @@
       return nick;
     }
 
-    async function startHost() {
+    function startHost() {
       if (roomId) {
         showToast("目前已在房間中");
         return;
@@ -1434,47 +1265,29 @@
       if (!nick) return;
 
       const nextRoom = sanitizeRoom(dom.roomInput.value) || generateRoomCode();
-      dom.createRoomBtn.disabled = true;
-      dom.joinRoomBtn.disabled = true;
-      dom.statusSync.textContent = "建立中";
       dom.roomInput.value = nextRoom;
+      saveLocalPrefs();
 
       destroyPeer();
-      const lifecycleId = peerLifecycleId;
       state = createEmptyState();
       isHost = true;
       hostReady = false;
       roomId = nextRoom;
       mySlot = "p1";
 
-      try {
-        peer = await createPeer(nextRoom);
-      } catch (err) {
-        console.error(err);
-        destroyPeer();
-        dom.roomInput.value = nextRoom;
-        showToast("PeerJS 載入失敗，請稍後重試");
-        refreshAll();
-        return;
-      }
-      if (lifecycleId !== peerLifecycleId) return;
-
+      peer = createPeer(nextRoom);
       setupCommonPeerEvents(peer);
 
       peer.on("open", (id) => {
-        if (lifecycleId !== peerLifecycleId) return;
         myPeerId = id;
         roomId = id;
-        dom.roomInput.value = id;
-        saveLocalPrefs();
         hostPeerId = id;
         hostReady = true;
         state.participants.p1 = {
           slot: "p1",
           name: nick,
           peerId: id,
-          isHost: true,
-          colorKey: DEFAULT_SLOT_COLORS.p1
+          isHost: true
         };
         state.updatedAt = nowTs();
         peer.on("connection", (conn) => setupHostConnection(conn));
@@ -1484,7 +1297,7 @@
       });
     }
 
-    async function startJoin() {
+    function startJoin() {
       if (roomId) {
         showToast("目前已在房間中");
         return;
@@ -1498,36 +1311,18 @@
         dom.roomInput.focus();
         return;
       }
-
-      dom.createRoomBtn.disabled = true;
-      dom.joinRoomBtn.disabled = true;
-      dom.statusSync.textContent = "連線中";
-      dom.roomInput.value = targetRoom;
       saveLocalPrefs();
 
       destroyPeer();
-      const lifecycleId = peerLifecycleId;
       state = createEmptyState();
       isHost = false;
       roomId = targetRoom;
       hostPeerId = targetRoom;
 
-      try {
-        peer = await createPeer();
-      } catch (err) {
-        console.error(err);
-        destroyPeer();
-        dom.roomInput.value = targetRoom;
-        showToast("PeerJS 載入失敗，請稍後重試");
-        refreshAll();
-        return;
-      }
-      if (lifecycleId !== peerLifecycleId) return;
-
+      peer = createPeer();
       setupCommonPeerEvents(peer);
 
       peer.on("open", (id) => {
-        if (lifecycleId !== peerLifecycleId) return;
         myPeerId = id;
         const conn = peer.connect(targetRoom, { reliable: true, metadata: { name: nick } });
         setupGuestConnection(conn);
@@ -1567,6 +1362,7 @@
       const room = sanitizeRoom(params.get("room") || hash);
       if (room) {
         dom.roomInput.value = room;
+        saveLocalPrefs();
       }
     }
 
@@ -1592,10 +1388,6 @@
         const slot = participant.slot;
         const wrapper = document.createElement("span");
         wrapper.className = `presence-chip${participant.isHost ? " host" : ""}`;
-        const theme = getTheme(slot);
-        wrapper.style.borderColor = `rgba(${theme.rgb}, .34)`;
-        wrapper.style.background = `rgba(${theme.rgb}, .14)`;
-        wrapper.style.color = theme.color;
         wrapper.textContent = `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}`;
         if (isHost && !participant.isHost) {
           const btn = document.createElement("button");
@@ -1638,7 +1430,7 @@
     restoreLocalPrefs();
     restoreFromHash();
     attachGlobalKickActions();
-    requestAnimationFrame(() => refreshAll());
+    refreshAll();
   </script>
 </body>
 </html>
