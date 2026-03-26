@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Artale 羅茱平台助手｜PeerJS 同步版</title>
+  <title>Artale 羅茱平台助手｜矩陣精簡同步版</title>
   <style>
     :root {
       --bg: #0b1220;
@@ -45,6 +44,7 @@
     }
 
     body { padding: 10px; }
+
     .app {
       max-width: 860px;
       margin: 0 auto;
@@ -52,7 +52,7 @@
       gap: 10px;
     }
 
-    .card {
+    .card, details.card {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 16px;
@@ -82,7 +82,7 @@
       line-height: 1.4;
     }
 
-    .mini-chips, .inline-chips, .presence-list {
+    .mini-chips, .inline-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
@@ -90,7 +90,7 @@
 
     .mini-chips { justify-content: flex-end; }
 
-    .chip, .status-pill, .presence-chip {
+    .chip, .status-pill {
       padding: 5px 9px;
       border-radius: 999px;
       font-size: 11px;
@@ -98,12 +98,6 @@
       background: rgba(79, 140, 255, .12);
       color: #dbeafe;
       white-space: nowrap;
-    }
-
-    .presence-chip.host {
-      background: rgba(245, 158, 11, .14);
-      border-color: rgba(245, 158, 11, .28);
-      color: #fde68a;
     }
 
     .section-title {
@@ -135,19 +129,19 @@
 
     .stack { display: grid; gap: 8px; }
 
+    .row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr 1fr;
+      gap: 8px;
+    }
+
     .row-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
 
-    .row-3 {
-      display: grid;
-      grid-template-columns: 1fr 1fr auto;
-      gap: 8px;
-    }
-
-    input[type="text"] {
+    input[type="text"], input[type="password"] {
       width: 100%;
       border: 1px solid var(--line);
       background: #0d1525;
@@ -158,13 +152,9 @@
       outline: none;
     }
 
-    input[type="text"]:focus {
+    input[type="text"]:focus, input[type="password"]:focus {
       border-color: rgba(79, 140, 255, .55);
       box-shadow: 0 0 0 3px rgba(79, 140, 255, .16);
-    }
-
-    input[readonly] {
-      opacity: .85;
     }
 
     button {
@@ -174,11 +164,10 @@
       cursor: pointer;
       font: inherit;
       font-weight: 900;
-      transition: transform .15s ease, filter .15s ease, opacity .15s ease;
+      transition: transform .15s ease, filter .15s ease;
     }
 
     button:active { transform: scale(.98); }
-    button:disabled { opacity: .48; cursor: not-allowed; }
 
     .btn-grid {
       display: grid;
@@ -220,78 +209,98 @@
       padding: 8px;
     }
 
-    .player-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 6px;
-      align-items: center;
-      margin-bottom: 6px;
-    }
+    .player-box .label { margin-bottom: 6px; }
 
-    .player-title {
-      font-size: 12px;
-      font-weight: 900;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
+    .player-box.player-p1,
+    .player-head.player-p1,
+    .pick-cell.player-p1.has-value { border-color: rgba(var(--p1-rgb), .34); background: rgba(var(--p1-rgb), .12); }
+    .player-box.player-p2,
+    .player-head.player-p2,
+    .pick-cell.player-p2.has-value { border-color: rgba(var(--p2-rgb), .34); background: rgba(var(--p2-rgb), .12); }
+    .player-box.player-p3,
+    .player-head.player-p3,
+    .pick-cell.player-p3.has-value { border-color: rgba(var(--p3-rgb), .34); background: rgba(var(--p3-rgb), .12); }
+    .player-box.player-p4,
+    .player-head.player-p4,
+    .pick-cell.player-p4.has-value { border-color: rgba(var(--p4-rgb), .34); background: rgba(var(--p4-rgb), .12); }
 
-    .player-role {
-      font-size: 10px;
-      padding: 3px 6px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.08);
-      color: var(--muted);
-    }
+    .player-box.player-p1 input { border-color: rgba(var(--p1-rgb), .28); }
+    .player-box.player-p2 input { border-color: rgba(var(--p2-rgb), .28); }
+    .player-box.player-p3 input { border-color: rgba(var(--p3-rgb), .28); }
+    .player-box.player-p4 input { border-color: rgba(var(--p4-rgb), .28); }
 
-    .player-role.me {
-      background: rgba(79,140,255,.18);
-      color: #dbeafe;
-    }
-
-    .player-box.colorized,
-    .player-head.colorized,
-    .pick-cell.has-value {
-      border-color: rgba(var(--slot-rgb, 139,92,246), .34);
-      background: rgba(var(--slot-rgb, 139,92,246), .12);
-    }
-
-    .player-box.colorized input {
-      border-color: rgba(var(--slot-rgb, 139,92,246), .28);
-    }
-
-    .color-picker-row {
-      display: flex;
-      gap: 6px;
+    .status-line {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 8px;
       margin-top: 8px;
-      flex-wrap: wrap;
     }
 
-    .color-dot {
-      width: 28px;
-      height: 28px;
-      border-radius: 10px;
-      border: 2px solid transparent;
-      background: var(--swatch, #8b5cf6);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
-      cursor: pointer;
+    .status-mini {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 9px;
     }
 
-    .color-dot.selected {
-      border-color: #ffffff;
-      box-shadow: 0 0 0 2px rgba(255,255,255,.15);
-    }
-
-    .color-dot:disabled {
-      opacity: .38;
-      cursor: not-allowed;
-    }
-
-    .help-line {
+    .status-name {
       font-size: 11px;
       color: var(--muted);
-      margin-top: 6px;
-      line-height: 1.45;
+      margin-bottom: 4px;
+    }
+
+    .status-value {
+      font-size: 14px;
+      font-weight: 900;
+      word-break: break-word;
+    }
+
+    .online { color: #86efac; }
+    .warn-text { color: #fde68a; }
+    .danger-text { color: #fca5a5; }
+
+    .presence-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .presence-chip {
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, .12);
+      border: 1px solid rgba(34, 197, 94, .22);
+      font-size: 11px;
+      color: #dcfce7;
+    }
+
+    details.card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    details > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px;
+      font-weight: 900;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::after {
+      content: '展開';
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    details[open] > summary::after { content: '收起'; }
+    details .detail-body {
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--line);
     }
 
     .board-card { padding: 10px; }
@@ -305,31 +314,57 @@
     }
 
     .board-scroll {
-      display: grid;
-      gap: 8px;
-    }
-
-    .matrix {
-      min-width: 0;
-      display: grid;
-      gap: 8px;
-    }
-
-    .shared-floor-card {
-      display: grid;
-      grid-template-columns: 62px 1fr;
-      gap: 8px;
-      align-items: center;
-      padding: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       border: 1px solid var(--line);
       border-radius: 14px;
       background: var(--panel-2);
     }
 
-    .floor-cell {
+    .matrix {
+      min-width: 620px;
+    }
+
+    .matrix-head, .matrix-row {
       display: grid;
-      gap: 6px;
-      justify-items: center;
+      grid-template-columns: 70px repeat(4, minmax(110px, 1fr));
+      align-items: center;
+    }
+
+    .matrix-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #10203a;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .matrix-head > div,
+    .matrix-row > div {
+      padding: 8px 6px;
+      min-width: 0;
+    }
+
+    .matrix-head .player-head {
+      font-size: 12px;
+      font-weight: 900;
+      text-align: center;
+      color: #dbeafe;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .matrix-row {
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+
+    .matrix-row:last-child { border-bottom: 0; }
+
+    .floor-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .floor-badge {
@@ -346,105 +381,65 @@
       color: #e8f0ff;
     }
 
-    .floor-count {
-      font-size: 10px;
-      color: var(--muted);
-      text-align: center;
-    }
-
-    .shared-pick-cell {
+    .pick-cell {
       width: 100%;
       min-width: 0;
-      padding: 5px;
+      padding: 4px;
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,.06);
       background: rgba(255,255,255,.02);
+      transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
     }
 
-    .shared-pick-grid {
+    .pick-cell.has-value {
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+
+    .pick-cell.player-p1.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p1-rgb), .16); }
+    .pick-cell.player-p2.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p2-rgb), .16); }
+    .pick-cell.player-p3.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p3-rgb), .16); }
+    .pick-cell.player-p4.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p4-rgb), .16); }
+
+    .pick-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 6px;
+      gap: 4px;
     }
 
-    .shared-pick-btn {
-      min-height: 46px;
-      padding: 6px 4px;
-      border-radius: 11px;
+    .pick-btn {
+      min-height: 34px;
+      padding: 0;
+      border-radius: 9px;
       border: 1px solid rgba(255,255,255,.08);
       background: #0d1525;
       color: var(--muted);
-      display: grid;
-      align-content: center;
-      justify-items: center;
-      gap: 2px;
-      text-align: center;
-    }
-
-    .shared-pick-btn .num {
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 900;
-      line-height: 1;
     }
 
-    .shared-pick-btn .owner {
-      font-size: 10px;
-      line-height: 1.1;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .shared-pick-btn.claimed {
+    .pick-cell.player-p1 .pick-btn.active {
+      background: linear-gradient(180deg, var(--p1), var(--p1-2));
       color: white;
       border-color: rgba(255,255,255,.16);
-      background: linear-gradient(180deg, var(--slot-color, #8b5cf6), var(--slot-color-2, #7c3aed));
-      box-shadow: 0 6px 14px rgba(var(--slot-rgb, 139,92,246), .25);
+      box-shadow: 0 6px 14px rgba(var(--p1-rgb), .25);
     }
-
-    .shared-pick-btn.mine {
-      box-shadow: 0 0 0 2px rgba(255,255,255,.2), 0 6px 14px rgba(var(--slot-rgb, 139,92,246), .25);
+    .pick-cell.player-p2 .pick-btn.active {
+      background: linear-gradient(180deg, var(--p2), var(--p2-2));
+      color: white;
+      border-color: rgba(255,255,255,.16);
+      box-shadow: 0 6px 14px rgba(var(--p2-rgb), .25);
     }
-
-    .shared-pick-btn.locked {
-      opacity: .9;
+    .pick-cell.player-p3 .pick-btn.active {
+      background: linear-gradient(180deg, var(--p3), var(--p3-2));
+      color: white;
+      border-color: rgba(255,255,255,.16);
+      box-shadow: 0 6px 14px rgba(var(--p3-rgb), .25);
     }
-
-    .shared-pick-btn.has-x {
-      position: relative;
-    }
-
-    .shared-pick-btn.has-x::after {
-      content: "✕";
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: rgba(239, 68, 68, .96);
-      font-size: 28px;
-      font-weight: 900;
-      line-height: 1;
-      text-shadow: 0 2px 10px rgba(0,0,0,.45);
-      pointer-events: none;
-      z-index: 3;
-    }
-
-    .shared-pick-btn.has-x .num,
-    .shared-pick-btn.has-x .owner {
-      opacity: .42;
-    }
-
-    .shared-pick-btn.empty:hover:not(:disabled) {
-      background: #13203a;
-      color: #dbeafe;
-      border-color: rgba(79,140,255,.28);
-    }
-
-    .shared-pick-btn:disabled {
-      opacity: .35;
-      cursor: not-allowed;
+    .pick-cell.player-p4 .pick-btn.active {
+      background: linear-gradient(180deg, var(--p4), var(--p4-2));
+      color: white;
+      border-color: rgba(255,255,255,.16);
+      box-shadow: 0 6px 14px rgba(var(--p4-rgb), .25);
     }
 
     .quick-actions {
@@ -453,16 +448,6 @@
       gap: 8px;
     }
 
-    .kick-btn {
-      min-height: 30px;
-      padding: 0 10px;
-      border-radius: 9px;
-      background: rgba(239,68,68,.14);
-      color: #fca5a5;
-      border: 1px solid rgba(239,68,68,.22);
-      font-size: 12px;
-      font-weight: 900;
-    }
 
     .toast {
       position: fixed;
@@ -491,7 +476,7 @@
       .title { font-size: 20px; }
       .header { align-items: flex-start; flex-direction: column; }
       .mini-chips { justify-content: flex-start; }
-      .row-3, .row-2, .btn-grid, .quick-actions {
+      .row-3, .row-2, .status-line, .quick-actions, .btn-grid {
         grid-template-columns: 1fr 1fr;
       }
       .players-grid {
@@ -500,29 +485,31 @@
     }
 
     @media (max-width: 520px) {
-      .row-3, .row-2, .btn-grid, .quick-actions {
+      .row-3, .row-2, .status-line, .quick-actions, .btn-grid {
         grid-template-columns: 1fr;
       }
       .players-grid {
         grid-template-columns: 1fr 1fr;
       }
-      .shared-floor-card {
-        grid-template-columns: 54px 1fr;
-        gap: 6px;
-        padding: 7px;
+      .matrix {
+        min-width: 560px;
       }
-      .shared-pick-grid {
-        gap: 4px;
+      .matrix-head, .matrix-row {
+        grid-template-columns: 62px repeat(4, minmax(98px, 1fr));
       }
-      .shared-pick-btn {
-        min-height: 42px;
-        padding: 5px 3px;
+      .matrix-head > div,
+      .matrix-row > div {
+        padding: 7px 5px;
       }
-      .shared-pick-btn .num {
-        font-size: 14px;
+      .pick-cell {
+        padding: 3px;
       }
-      .shared-pick-btn .owner {
-        font-size: 9px;
+      .pick-grid {
+        gap: 3px;
+      }
+      .pick-btn {
+        min-height: 30px;
+        font-size: 12px;
       }
     }
   </style>
@@ -532,14 +519,20 @@
     <section class="card header">
       <div>
         <h1 class="title">Artale 羅茱平台助手</h1>
-        <div class="sub">建立或加入房間後即可開始記錄平台。</div>
+        <div class="sub">矩陣精簡版｜直接點 1~4 上色，玩家固定顏色，樓層由下至上 1~10。</div>
+      </div>
+      <div class="mini-chips">
+        <span class="chip">4 人共用</span>
+        <span class="chip">即時同步</span>
+        <span class="chip">點擊上色</span>
+        <span class="chip">本機備份</span>
       </div>
     </section>
 
     <section class="card">
       <div class="compact-head">
         <h2 class="section-title" style="margin:0;">房間與玩家</h2>
-        <div class="hint">先設定暱稱，再建立或加入房間</div>
+        <div class="hint">先加入房間，再同步記錄</div>
       </div>
       <div class="stack">
         <div class="row-3">
@@ -551,48 +544,36 @@
             <label class="label" for="roomInput">房號</label>
             <input id="roomInput" type="text" maxlength="40" placeholder="例如：RJ-8421" />
           </div>
-          <div style="display:flex;align-items:flex-end;">
-            <button class="btn secondary" id="copyRoomBtn" style="width:100%;">複製房號</button>
+          <div>
+            <label class="label" for="passwordInput">密語（可不填）</label>
+            <input id="passwordInput" type="password" maxlength="50" placeholder="有需要再填" />
           </div>
         </div>
-
         <div class="btn-grid">
           <button class="btn" id="createRoomBtn">建立新房</button>
           <button class="btn secondary" id="joinRoomBtn">加入房間</button>
           <button class="btn secondary" id="copyLinkBtn">複製邀請連結</button>
-          <button class="btn danger" id="disconnectBtn">離開房間</button>
+          <button class="btn secondary" id="copyRoomBtn">複製房號</button>
         </div>
-
         <div class="inline-chips">
           <span class="status-pill">房間：<strong id="statusRoom">未加入</strong></span>
-          <span class="status-pill">角色：<strong id="statusRole">未加入</strong></span>
-          <span class="status-pill">連線：<strong id="statusSync">尚未連線</strong></span>
+          <span class="status-pill">連線：<strong id="statusConnection">尚未連線</strong></span>
+          <span class="status-pill">同步：<strong id="statusSync">未同步</strong></span>
+          <span class="status-pill">快取：<strong id="statusCache">未就緒</strong></span>
           <span class="status-pill">人數：<strong id="statusPeers">0</strong></span>
           <span class="status-pill">更新：<strong id="lastUpdated">--</strong></span>
         </div>
-
+        <div class="players-grid" id="playerInputs"></div>
         <div class="presence-list" id="presenceList">
           <span class="presence-chip">尚未加入房間</span>
         </div>
-
-        <div class="help-line">
-          可自行修改名稱與顏色；同房成員會看到最新設定。
-        </div>
       </div>
-    </section>
-
-    <section class="card">
-      <div class="compact-head">
-        <h2 class="section-title" style="margin:0;">玩家欄位</h2>
-        <div class="hint">可改名稱與顏色｜平台選位改為每層共用</div>
-      </div>
-      <div class="players-grid" id="playerInputs"></div>
     </section>
 
     <section class="card board-card">
       <div class="board-toolbar">
         <h2 class="section-title" style="margin:0;">平台記錄</h2>
-        <div class="hint">每層共用一組按鈕｜同一數字不可重複被不同人選</div>
+        <div class="hint">點 1~4 直接填色｜再點一次可清除</div>
       </div>
       <div class="board-scroll">
         <div class="matrix" id="boardBody"></div>
@@ -604,119 +585,70 @@
       <div class="quick-actions" id="copyPlayerActions"></div>
       <div class="quick-actions" style="margin-top:8px;">
         <button class="btn warn" id="clearBoardBtn">清空本房答案</button>
-        <button class="btn secondary" id="reconnectBtn">重新整理房間狀態</button>
+        <button class="btn danger" id="disconnectBtn">離開房間</button>
       </div>
     </section>
   </div>
 
   <div class="toast" id="toast"></div>
 
-  <script>
-    const SLOT_KEYS = ["p1", "p2", "p3", "p4"];
+    <script type="module">
+    import * as Y from 'https://esm.sh/yjs@13.6.27';
+    import { WebsocketProvider } from 'https://esm.sh/y-websocket@3.0.0';
+    import { IndexeddbPersistence } from 'https://esm.sh/y-indexeddb@9.0.12';
+
+    const SERVER_URL = 'wss://demos.yjs.dev/ws';
+    const PLAYERS = ['p1', 'p2', 'p3', 'p4'];
     const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
     const DISPLAY_FLOORS = [...FLOORS].reverse();
-    const COLOR_OPTIONS = {
-      purple: { label: "紫色", color: "#8b5cf6", color2: "#7c3aed", rgb: "139,92,246" },
-      green:  { label: "綠色", color: "#22c55e", color2: "#16a34a", rgb: "34,197,94" },
-      yellow: { label: "黃色", color: "#facc15", color2: "#eab308", rgb: "250,204,21" },
-      red:    { label: "紅色", color: "#ef4444", color2: "#dc2626", rgb: "239,68,68" }
-    };
-
-    const DEFAULT_SLOT_COLORS = {
-      p1: "purple",
-      p2: "green",
-      p3: "yellow",
-      p4: "red"
-    };
-
-    const SLOT_META = {
-      p1: { label: "玩家1", className: "player-p1" },
-      p2: { label: "玩家2", className: "player-p2" },
-      p3: { label: "玩家3", className: "player-p3" },
-      p4: { label: "玩家4", className: "player-p4" }
-    };
+    const DEFAULT_NAMES = { p1: '玩家1', p2: '玩家2', p3: '玩家3', p4: '玩家4' };
 
     const $ = (id) => document.getElementById(id);
 
     const dom = {
-      nicknameInput: $("nicknameInput"),
-      roomInput: $("roomInput"),
-      createRoomBtn: $("createRoomBtn"),
-      joinRoomBtn: $("joinRoomBtn"),
-      copyLinkBtn: $("copyLinkBtn"),
-      copyRoomBtn: $("copyRoomBtn"),
-      disconnectBtn: $("disconnectBtn"),
-      reconnectBtn: $("reconnectBtn"),
-      clearBoardBtn: $("clearBoardBtn"),
-      statusRoom: $("statusRoom"),
-      statusRole: $("statusRole"),
-      statusSync: $("statusSync"),
-      statusPeers: $("statusPeers"),
-      lastUpdated: $("lastUpdated"),
-      presenceList: $("presenceList"),
-      playerInputs: $("playerInputs"),
-      boardBody: $("boardBody"),
-      copyPlayerActions: $("copyPlayerActions"),
-      toast: $("toast")
+      nicknameInput: $('nicknameInput'),
+      roomInput: $('roomInput'),
+      passwordInput: $('passwordInput'),
+      createRoomBtn: $('createRoomBtn'),
+      joinRoomBtn: $('joinRoomBtn'),
+      copyLinkBtn: $('copyLinkBtn'),
+      copyRoomBtn: $('copyRoomBtn'),
+      statusRoom: $('statusRoom'),
+      statusConnection: $('statusConnection'),
+      statusSync: $('statusSync'),
+      statusCache: $('statusCache'),
+      statusPeers: $('statusPeers'),
+      lastUpdated: $('lastUpdated'),
+      playerInputs: $('playerInputs'),
+      presenceList: $('presenceList'),
+      boardBody: $('boardBody'),
+      copyPlayerActions: $('copyPlayerActions'),
+      clearBoardBtn: $('clearBoardBtn'),
+      disconnectBtn: $('disconnectBtn'),
+      toast: $('toast')
     };
 
-    let peer = null;
-    let isHost = false;
-    let roomId = "";
-    let myPeerId = "";
-    let mySlot = "";
-    let hostConn = null;
-    let hostPeerId = "";
-    let hostReady = false;
-    const guestConnections = new Map();
-
-    let state = createEmptyState();
-    let localXMarks = {};
-    let suppressTapUntil = 0;
-
-    function createEmptyState() {
-      const participants = {};
-      SLOT_KEYS.forEach((slot) => participants[slot] = null);
-      return {
-        participants,
-        answers: {},
-        updatedAt: 0
-      };
-    }
-
-    function nowTs() {
-      return Date.now();
-    }
-
-    function sanitizeRoom(value) {
-      return String(value || "")
-        .trim()
-        .replace(/\s+/g, "")
-        .replace(/[^A-Za-z0-9\-_]/g, "")
-        .slice(0, 80);
-    }
-
-    function sanitizeNick(value) {
-      return String(value || "")
-        .trim()
-        .replace(/\s+/g, " ")
-        .slice(0, 20);
-    }
-
-    function generateRoomCode() {
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      let result = "RJ-";
-      for (let i = 0; i < 6; i++) {
-        result += chars[Math.floor(Math.random() * chars.length)];
-      }
-      return result;
-    }
+    let ydoc = null;
+    let provider = null;
+    let idbProvider = null;
+    let shared = null;
+    let playersMap = null;
+    let answersMap = null;
+    let metaMap = null;
+    let currentRoom = '';
+    let currentPassword = '';
+    let currentRoomKey = '';
+    let wsStatus = 'disconnected';
+    let remoteSynced = false;
+    let cacheSynced = false;
+    let connectionError = '';
+    let cleanupFns = [];
 
     function showToast(message) {
       dom.toast.textContent = message;
-      dom.toast.classList.add("show");
+      dom.toast.classList.add('show');
       clearTimeout(showToast._timer);
-      showToast._timer = setTimeout(() => dom.toast.classList.remove("show"), 1800);
+      showToast._timer = setTimeout(() => dom.toast.classList.remove('show'), 1800);
     }
 
     async function copyText(text) {
@@ -728,13 +660,13 @@
         }
       } catch (_) {}
       try {
-        const ta = document.createElement("textarea");
+        const ta = document.createElement('textarea');
         ta.value = text;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
         document.body.appendChild(ta);
         ta.select();
-        document.execCommand("copy");
+        document.execCommand('copy');
         ta.remove();
         return true;
       } catch (_) {
@@ -742,1085 +674,544 @@
       }
     }
 
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let result = 'RJ-';
+      for (let i = 0; i < 6; i++) result += chars[Math.floor(Math.random() * chars.length)];
+      return result;
+    }
+
+    function sanitizeRoom(value) {
+      return String(value || '').trim().replace(/\s+/g, '-').replace(/[^\w-]/g, '').slice(0, 40);
+    }
+
+    async function digestText(value) {
+      const text = String(value || '');
+      if (!text) return 'open';
+      if (window.crypto?.subtle) {
+        const bytes = new TextEncoder().encode(text);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+      return btoa(unescape(encodeURIComponent(text))).replace(/[^a-zA-Z0-9]/g, '').slice(0, 48) || 'open';
+    }
+
+    async function buildRoomKey(room, password) {
+      const safeRoom = sanitizeRoom(room);
+      const pwdHash = await digestText(password || '');
+      return `rjpq-tool::${safeRoom}::${pwdHash}`;
+    }
+
     function getInviteLink() {
-      if (!roomId) return "";
+      if (!currentRoom) return '';
       const url = new URL(window.location.href);
       const params = new URLSearchParams();
-      params.set("room", roomId);
+      params.set('room', currentRoom);
+      if (currentPassword) params.set('pwd', currentPassword);
       url.hash = params.toString();
       return url.toString();
     }
 
-    function getLocalXStorageKey(targetRoom = roomId) {
-      return `rjpq_local_x::${sanitizeRoom(targetRoom || "default")}`;
+    function setMetaTouched() {
+      if (!metaMap) return;
+      metaMap.set('updatedAt', Date.now());
+      metaMap.set('updatedBy', String(dom.nicknameInput.value || '').trim() || '未命名隊友');
     }
 
-    function loadLocalXMarks(targetRoom = roomId) {
-      const key = getLocalXStorageKey(targetRoom);
-      try {
-        const raw = localStorage.getItem(key);
-        localXMarks = raw ? JSON.parse(raw) : {};
-      } catch (_) {
-        localXMarks = {};
-      }
-      if (!localXMarks || typeof localXMarks !== "object") {
-        localXMarks = {};
-      }
+    function getPlayerName(key) {
+      return playersMap?.get(key) || DEFAULT_NAMES[key];
     }
 
-    function saveLocalXMarks(targetRoom = roomId) {
-      const key = getLocalXStorageKey(targetRoom);
-      try {
-        localStorage.setItem(key, JSON.stringify(localXMarks));
-      } catch (_) {}
+    function getAnswer(floor, playerKey) {
+      return answersMap?.get(`${floor}:${playerKey}`) || '';
     }
 
-    function getLocalXKey(floor, value) {
-      return `${floor}:${value}`;
+    function setAnswer(floor, playerKey, value) {
+      if (!answersMap) return;
+      const k = `${floor}:${playerKey}`;
+      if (!value) answersMap.delete(k);
+      else answersMap.set(k, String(value));
+      setMetaTouched();
     }
 
-    function hasLocalX(floor, value) {
-      return !!localXMarks[getLocalXKey(floor, value)];
+    function getAwarenessStates() {
+      if (!provider?.awareness) return [];
+      return Array.from(provider.awareness.getStates().entries());
     }
 
-    function toggleLocalX(floor, value) {
-      if (!roomId) {
-        showToast("請先建立或加入房間");
+    function updateStatus() {
+      dom.statusRoom.textContent = currentRoom || '未加入';
+
+      dom.statusConnection.className = '';
+      dom.statusSync.className = '';
+      dom.statusCache.className = '';
+
+      if (!currentRoom) {
+        dom.statusConnection.textContent = '尚未連線';
+        dom.statusSync.textContent = '未同步';
+        dom.statusCache.textContent = '未就緒';
+        dom.statusPeers.textContent = '0';
         return;
       }
-      const key = getLocalXKey(floor, value);
-      if (localXMarks[key]) delete localXMarks[key];
-      else localXMarks[key] = 1;
-      saveLocalXMarks();
-      renderBoard();
-    }
 
-    function saveLocalPrefs() {
-      localStorage.setItem("rjpq_peerjs_nick", dom.nicknameInput.value.trim());
-    }
-
-    function restoreLocalPrefs() {
-      const nick = localStorage.getItem("rjpq_peerjs_nick") || "";
-      if (nick) dom.nicknameInput.value = nick;
-    }
-
-    function emptyAnswersForSlot(slot) {
-      if (!slot) return;
-      for (const floor of FLOORS) {
-        delete state.answers[`${floor}:${slot}`];
-      }
-    }
-
-    function getConnectedParticipants() {
-      return SLOT_KEYS.map((slot) => state.participants[slot]).filter(Boolean);
-    }
-
-    function uniqueOrder(items) {
-      return [...new Set(items.filter(Boolean))];
-    }
-
-    function getUsedColorKeys(exceptSlot = "") {
-      const used = new Set();
-      SLOT_KEYS.forEach((slot) => {
-        if (slot === exceptSlot) return;
-        const colorKey = state.participants[slot]?.colorKey;
-        if (COLOR_OPTIONS[colorKey]) used.add(colorKey);
-      });
-      return used;
-    }
-
-    function getFirstAvailableColor(exceptSlot = "", preferredOrder = []) {
-      const used = getUsedColorKeys(exceptSlot);
-      const order = uniqueOrder([...preferredOrder, ...Object.keys(COLOR_OPTIONS)]);
-      return order.find((key) => COLOR_OPTIONS[key] && !used.has(key)) || null;
-    }
-
-    function normalizeUniqueColors(preferredSlot = "") {
-      const taken = new Set();
-
-      if (preferredSlot && state.participants[preferredSlot]) {
-        let keepColor = state.participants[preferredSlot].colorKey;
-        if (!COLOR_OPTIONS[keepColor] || taken.has(keepColor)) {
-          keepColor = getFirstAvailableColor(preferredSlot, [DEFAULT_SLOT_COLORS[preferredSlot]]);
-          state.participants[preferredSlot].colorKey = keepColor || DEFAULT_SLOT_COLORS[preferredSlot] || "purple";
-        }
-        taken.add(state.participants[preferredSlot].colorKey);
-      }
-
-      SLOT_KEYS.forEach((slot) => {
-        if (slot === preferredSlot) return;
-        const participant = state.participants[slot];
-        if (!participant) return;
-
-        let nextColor = participant.colorKey;
-        if (!COLOR_OPTIONS[nextColor] || taken.has(nextColor)) {
-          const preferred = uniqueOrder([DEFAULT_SLOT_COLORS[slot], nextColor]);
-          nextColor = uniqueOrder([...preferred, ...Object.keys(COLOR_OPTIONS)]).find((key) => COLOR_OPTIONS[key] && !taken.has(key)) || DEFAULT_SLOT_COLORS[slot] || "purple";
-          participant.colorKey = nextColor;
-        }
-        taken.add(nextColor);
-      });
-    }
-
-    function getColorKey(slot) {
-      return state.participants[slot]?.colorKey || DEFAULT_SLOT_COLORS[slot] || "purple";
-    }
-
-    function getTheme(slot) {
-      return COLOR_OPTIONS[getColorKey(slot)] || COLOR_OPTIONS.purple;
-    }
-
-    function themeStyle(slot) {
-      const theme = getTheme(slot);
-      return `--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};`;
-    }
-
-    function getSlotName(slot) {
-      return state.participants[slot]?.name || SLOT_META[slot].label;
-    }
-
-    function getAnswer(floor, slot) {
-      return state.answers[`${floor}:${slot}`] || "";
-    }
-
-    function getSelectedSlotByValue(floor, value, excludeSlot = "") {
-      const target = String(value || "");
-      if (!target) return "";
-      return SLOT_KEYS.find((slot) => slot !== excludeSlot && getAnswer(floor, slot) === target) || "";
-    }
-
-    function getFloorSelections(floor) {
-      const result = {};
-      SLOT_KEYS.forEach((slot) => {
-        const value = getAnswer(floor, slot);
-        if (value) result[value] = slot;
-      });
-      return result;
-    }
-
-    function setAnswerLocal(floor, slot, value) {
-      const key = `${floor}:${slot}`;
-      if (!value) delete state.answers[key];
-      else state.answers[key] = String(value);
-      state.updatedAt = nowTs();
-    }
-
-    function buildPlayerReport(slot) {
-      const name = getSlotName(slot);
-      const digits = FLOORS.map((floor) => String(getAnswer(floor, slot) || 0));
-      return `${name}: ${digits.slice(0, 5).join("")}/${digits.slice(5).join("")}`;
-    }
-
-    function canEditSlot(slot) {
-      if (!roomId) return false;
-      if (isHost) return true;
-      return mySlot === slot;
-    }
-
-    function setStatusText(el, text, kind) {
-      el.textContent = text;
-      el.className = "";
-      if (kind) el.classList.add(kind);
-    }
-
-    function renderStatus() {
-      dom.statusRoom.textContent = roomId || "未加入";
-      dom.statusRole.textContent = !roomId ? "未加入" : (isHost ? "房主" : (mySlot ? `成員 (${SLOT_META[mySlot].label})` : "成員"));
-      if (!roomId) {
-        setStatusText(dom.statusSync, "尚未連線", "");
-      } else if (isHost) {
-        setStatusText(dom.statusSync, hostReady ? "房主待命中" : "建立中", hostReady ? "online" : "warn-text");
-      } else if (hostConn && hostConn.open) {
-        setStatusText(dom.statusSync, "已連上房主", "online");
+      if (!navigator.onLine) {
+        dom.statusConnection.textContent = '裝置離線';
+        dom.statusConnection.classList.add('warn-text');
+      } else if (wsStatus === 'connected') {
+        dom.statusConnection.textContent = 'WebSocket 已連線';
+        dom.statusConnection.classList.add('online');
+      } else if (wsStatus === 'connecting') {
+        dom.statusConnection.textContent = 'WebSocket 連線中';
+        dom.statusConnection.classList.add('warn-text');
+      } else if (connectionError) {
+        dom.statusConnection.textContent = connectionError;
+        dom.statusConnection.classList.add('danger-text');
       } else {
-        setStatusText(dom.statusSync, "等待房主", "warn-text");
+        dom.statusConnection.textContent = 'WebSocket 未連線';
+        dom.statusConnection.classList.add('warn-text');
       }
 
-      dom.statusPeers.textContent = String(getConnectedParticipants().length);
-      if (state.updatedAt) {
-        dom.lastUpdated.textContent = new Date(state.updatedAt).toLocaleTimeString("zh-TW", {
-          hour12: false,
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit"
-        });
+      if (remoteSynced) {
+        dom.statusSync.textContent = '已完成初始同步';
+        dom.statusSync.classList.add('online');
+      } else if (wsStatus === 'connected') {
+        dom.statusSync.textContent = '等待初始同步';
+        dom.statusSync.classList.add('warn-text');
       } else {
-        dom.lastUpdated.textContent = "--";
+        dom.statusSync.textContent = '未同步';
+        dom.statusSync.classList.add('warn-text');
       }
 
-      dom.createRoomBtn.disabled = !!roomId;
-      dom.joinRoomBtn.disabled = !!roomId;
-      dom.copyLinkBtn.disabled = !roomId;
-      dom.copyRoomBtn.disabled = !roomId;
-      dom.disconnectBtn.disabled = !roomId;
-      dom.clearBoardBtn.disabled = !roomId;
-      dom.reconnectBtn.disabled = !roomId;
-      dom.roomInput.readOnly = !!roomId;
+      if (cacheSynced) {
+        dom.statusCache.textContent = '本機快取就緒';
+        dom.statusCache.classList.add('online');
+      } else {
+        dom.statusCache.textContent = '本機快取同步中';
+        dom.statusCache.classList.add('warn-text');
+      }
+
+      const states = getAwarenessStates();
+      dom.statusPeers.textContent = String(states.length || 1);
     }
 
     function renderPresence() {
-      const list = getConnectedParticipants();
-      if (!list.length) {
+      if (!provider) {
         dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
         return;
       }
-      dom.presenceList.innerHTML = "";
-      list.forEach((participant) => {
-        const slot = participant.slot;
-        const chip = document.createElement("span");
-        chip.className = `presence-chip${participant.isHost ? " host" : ""}`;
-        const theme = getTheme(slot);
-        chip.style.borderColor = `rgba(${theme.rgb}, .34)`;
-        chip.style.background = `rgba(${theme.rgb}, .14)`;
-        chip.style.color = theme.color;
-        chip.textContent = `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}`;
-        dom.presenceList.appendChild(chip);
+      const localId = provider.awareness.clientID;
+      const chips = getAwarenessStates().map(([clientId, state]) => {
+        const name = state?.user?.name || '未命名隊友';
+        const suffix = clientId === localId ? '（我）' : '';
+        return `<span class="presence-chip">${escapeHtml(name)}${suffix}</span>`;
       });
+      dom.presenceList.innerHTML = chips.length ? chips.join('') : '<span class="presence-chip">目前只有你</span>';
+    }
+
+    function playerClass(key) {
+      return `player-${key}`;
     }
 
     function renderPlayers() {
-      dom.playerInputs.innerHTML = "";
-      SLOT_KEYS.forEach((slot) => {
-        const meta = SLOT_META[slot];
-        const participant = state.participants[slot];
-        const box = document.createElement("div");
-        box.className = `player-box colorized ${meta.className}`;
-        box.style.cssText = themeStyle(slot);
+      dom.playerInputs.innerHTML = PLAYERS.map((key, idx) => `
+        <div class="player-box ${playerClass(key)}">
+          <label class="label">隊友 ${idx + 1}</label>
+          <input type="text" data-player-name="${key}" maxlength="20" value="${escapeAttr(getPlayerName(key))}" placeholder="輸入玩家名稱" />
+        </div>
+      `).join('');
 
-        const isMine = mySlot === slot;
-        const canEdit = canEditSlot(slot) && !!participant;
-        const headRole = participant
-          ? (participant.isHost ? "房主" : (isMine ? "我的欄位" : "隊友"))
-          : "空位";
-
-        const usedColorsByOthers = getUsedColorKeys(slot);
-        const colorButtons = Object.entries(COLOR_OPTIONS).map(([key, option]) => {
-          const lockedByOther = usedColorsByOthers.has(key) && getColorKey(slot) !== key;
-          return `
-          <button
-            type="button"
-            class="color-dot ${getColorKey(slot) === key ? "selected" : ""}"
-            data-slot="${slot}"
-            data-color="${key}"
-            style="--swatch:${option.color}"
-            title="${lockedByOther ? option.label + '（已被使用）' : option.label}"
-            ${canEdit && !lockedByOther ? "" : "disabled"}
-          ></button>
-        `;
-        }).join("");
-
-        box.innerHTML = `
-          <div class="player-head colorized ${meta.className}" style="${themeStyle(slot)}">
-            <div class="player-title">${meta.label}</div>
-            <div class="player-role ${isMine ? "me" : ""}">${headRole}</div>
-          </div>
-          <label class="label" for="name-${slot}">顯示名稱</label>
-          <input id="name-${slot}" type="text" maxlength="20" value="${participant ? escapeHtml(participant.name) : ""}" placeholder="${meta.label}" ${canEdit ? "" : "readonly"} />
-          <div class="help-line">顏色：${colorName(getColorKey(slot))}${participant ? `｜ID ${participant.peerId.slice(0, 8)}` : ""}</div>
-          <div class="color-picker-row">${colorButtons}</div>
-        `;
-        dom.playerInputs.appendChild(box);
-
-        const input = box.querySelector(`#name-${slot}`);
-        input.addEventListener("change", () => {
-          const next = sanitizeNick(input.value) || meta.label;
-          input.value = next;
-          renameSlot(slot, next);
+      dom.playerInputs.querySelectorAll('[data-player-name]').forEach((input) => {
+        input.addEventListener('change', (e) => {
+          if (!playersMap) return;
+          const key = e.target.dataset.playerName;
+          const value = String(e.target.value || '').trim();
+          playersMap.set(key, value || DEFAULT_NAMES[key]);
+          setMetaTouched();
         });
-
-        box.querySelectorAll(".color-dot").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            changeSlotColor(slot, btn.dataset.color);
-          });
-        });
-      });
-    }
-
-    function renderCopyActions() {
-      dom.copyPlayerActions.innerHTML = "";
-      SLOT_KEYS.forEach((slot) => {
-        const btn = document.createElement("button");
-        btn.className = `btn secondary`;
-        btn.textContent = `複製 ${getSlotName(slot)}`;
-        btn.disabled = !state.participants[slot];
-        btn.addEventListener("click", async () => {
-          const ok = await copyText(buildPlayerReport(slot));
-          showToast(ok ? `已複製 ${getSlotName(slot)}` : "複製失敗");
-        });
-        dom.copyPlayerActions.appendChild(btn);
       });
     }
 
     function renderBoard() {
-      const rows = DISPLAY_FLOORS.map((floor) => {
-        const selections = getFloorSelections(floor);
-        const count = Object.keys(selections).length;
-
-        const buttons = [1, 2, 3, 4].map((n) => {
-          const value = String(n);
-          const ownerSlot = selections[value] || "";
-          const ownerName = ownerSlot ? getSlotName(ownerSlot) : "";
-          const theme = ownerSlot ? getTheme(ownerSlot) : null;
-          const classes = ["shared-pick-btn", ownerSlot ? "claimed" : "empty"];
-          if (ownerSlot && ownerSlot === mySlot) classes.push("mine");
-          if (ownerSlot && ownerSlot !== mySlot) classes.push("locked");
-          if (hasLocalX(floor, value)) classes.push("has-x");
-          const style = theme
-            ? `style="--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};"`
-            : "";
-          const disabled = !roomId || !mySlot ? "disabled" : "";
-          return `
-            <button
-              type="button"
-              class="${classes.join(" ")}" ${style}
-              data-floor="${floor}"
-              data-value="${value}"
-              data-owner-slot="${ownerSlot}"
-              ${disabled}
-            >
-              <span class="num">${value}</span>
-              <span class="owner">${escapeHtml(ownerName)}</span>
-            </button>
-          `;
-        }).join("");
-
-        return `
-          <div class="shared-floor-card">
-            <div class="floor-cell">
-              <span class="floor-badge">${floor}F</span>
-              <span class="floor-count">${count}/4</span>
-            </div>
-            <div class="shared-pick-cell">
-              <div class="shared-pick-grid">${buttons}</div>
-            </div>
+      dom.boardBody.innerHTML = `
+        <div class="matrix-head">
+          <div class="player-head">樓層</div>
+          ${PLAYERS.map((playerKey) => `<div class="player-head ${playerClass(playerKey)}">${escapeHtml(getPlayerName(playerKey))}</div>`).join('')}
+        </div>
+        ${DISPLAY_FLOORS.map((floor) => `
+          <div class="matrix-row">
+            <div class="floor-cell"><span class="floor-badge">${floor}F</span></div>
+            ${PLAYERS.map((playerKey) => {
+              const selected = getAnswer(floor, playerKey);
+              return `
+                <div>
+                  <div class="pick-cell ${playerClass(playerKey)} ${selected ? 'has-value' : ''}">
+                    <div class="pick-grid">
+                      ${[1,2,3,4].map((num) => `
+                        <button type="button" class="pick-btn ${selected === String(num) ? 'active' : ''}" data-floor="${floor}" data-player="${playerKey}" data-value="${num}">${num}</button>
+                      `).join('')}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
-        `;
-      }).join("");
+        `).join('')}
+      `;
 
-      dom.boardBody.innerHTML = rows;
-
-      dom.boardBody.querySelectorAll(".shared-pick-btn[data-floor][data-value]").forEach((btn) => {
-        const floor = Number(btn.dataset.floor);
-        const value = String(btn.dataset.value || "");
-
-        const triggerX = () => {
-          toggleLocalX(floor, value);
-          suppressTapUntil = Date.now() + 550;
-          showToast(hasLocalX(floor, value) ? `${floor}F ${value} 已打 X` : `${floor}F ${value} 已取消 X`);
-        };
-
-        btn.addEventListener("contextmenu", (event) => {
-          event.preventDefault();
-          triggerX();
-        });
-
-        let touchTimer = null;
-        let touchHandled = false;
-        let touchStartX = 0;
-        let touchStartY = 0;
-
-        btn.addEventListener("touchstart", (event) => {
-          const touch = event.touches && event.touches[0];
-          if (!touch) return;
-          touchHandled = false;
-          touchStartX = touch.clientX;
-          touchStartY = touch.clientY;
-          clearTimeout(touchTimer);
-          touchTimer = setTimeout(() => {
-            touchHandled = true;
-            triggerX();
-          }, 420);
-        }, { passive: true });
-
-        btn.addEventListener("touchmove", (event) => {
-          const touch = event.touches && event.touches[0];
-          if (!touch) return;
-          const moved = Math.abs(touch.clientX - touchStartX) > 12 || Math.abs(touch.clientY - touchStartY) > 12;
-          if (moved) {
-            clearTimeout(touchTimer);
-          }
-        }, { passive: true });
-
-        const clearTouch = () => {
-          clearTimeout(touchTimer);
-          touchTimer = null;
-        };
-        btn.addEventListener("touchend", clearTouch, { passive: true });
-        btn.addEventListener("touchcancel", clearTouch, { passive: true });
-
-        btn.addEventListener("click", () => {
-          if (touchHandled || Date.now() < suppressTapUntil) {
-            touchHandled = false;
-            return;
-          }
-
-          const ownerSlot = btn.dataset.ownerSlot || "";
-
-          if (!roomId || !mySlot) {
-            showToast("請先建立或加入房間");
-            return;
-          }
-
-          if (ownerSlot && ownerSlot !== mySlot) {
-            showToast(`${getSlotName(ownerSlot)} 已選 ${value}`);
-            return;
-          }
-
-          const current = getAnswer(floor, mySlot);
-          const nextValue = current === value ? "" : value;
-          updateAnswer(mySlot, floor, nextValue);
+      dom.boardBody.querySelectorAll('.pick-btn[data-floor][data-player][data-value]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const nextValue = el.dataset.value;
+          const currentValue = getAnswer(el.dataset.floor, el.dataset.player);
+          setAnswer(el.dataset.floor, el.dataset.player, currentValue === nextValue ? '' : nextValue);
         });
       });
     }
 
-    function colorName(colorKey) {
-      return COLOR_OPTIONS[colorKey]?.label || "紫色";
+    function getPlayerCompactCode(playerKey) {
+      const digits = FLOORS.map((floor) => getAnswer(floor, playerKey) || '0');
+      return `${digits.slice(0, 5).join('')}/${digits.slice(5).join('')}`;
     }
 
-    function escapeHtml(str) {
-      return String(str || "").replace(/[&<>"']/g, (m) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      })[m]);
+    function getPlayerCopyText(playerKey) {
+      return `${getPlayerName(playerKey)}: ${getPlayerCompactCode(playerKey)}`;
     }
 
-    function refreshAll() {
-      renderStatus();
-      renderPresence();
+    function renderCopyPlayerActions() {
+      if (!dom.copyPlayerActions) return;
+      dom.copyPlayerActions.innerHTML = PLAYERS.map((key, idx) => `
+        <button class="btn secondary ${playerClass(key)}" data-copy-player="${key}">複製 ${escapeHtml(getPlayerName(key) || `玩家${idx + 1}`)} 報位</button>
+      `).join('');
+
+      dom.copyPlayerActions.querySelectorAll('[data-copy-player]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!currentRoom) {
+            showToast('請先加入房間');
+            return;
+          }
+          const key = btn.dataset.copyPlayer;
+          const ok = await copyText(getPlayerCopyText(key));
+          showToast(ok ? `已複製 ${getPlayerName(key)} 報位` : '複製失敗');
+        });
+      });
+    }
+
+    function renderMeta() {
+      const ts = metaMap?.get('updatedAt');
+      dom.lastUpdated.textContent = ts
+        ? new Date(ts).toLocaleString('zh-TW', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : '--';
+    }
+
+    function renderAll() {
       renderPlayers();
       renderBoard();
-      renderCopyActions();
+      renderCopyPlayerActions();
+      renderMeta();
+      renderPresence();
+      updateStatus();
     }
 
-    function broadcastState() {
-      if (!isHost) return;
-      state.updatedAt = nowTs();
-      for (const { conn } of guestConnections.values()) {
-        if (conn.open) {
-          conn.send({ type: "STATE_SYNC", state });
+    function destroySession() {
+      cleanupFns.forEach((fn) => {
+        try { fn(); } catch (_) {}
+      });
+      cleanupFns = [];
+      try { provider?.destroy(); } catch (_) {}
+      try { idbProvider?.destroy(); } catch (_) {}
+      try { ydoc?.destroy(); } catch (_) {}
+      ydoc = provider = idbProvider = shared = playersMap = answersMap = metaMap = null;
+      currentRoom = '';
+      currentPassword = '';
+      currentRoomKey = '';
+      wsStatus = 'disconnected';
+      remoteSynced = false;
+      cacheSynced = false;
+      connectionError = '';
+      updateStatus();
+      renderPresence();
+      renderAll();
+    }
+
+    function ensureSharedMaps() {
+      shared = ydoc.getMap('rjpq-platform');
+
+      playersMap = shared.get('players');
+      if (!(playersMap instanceof Y.Map)) {
+        playersMap = new Y.Map();
+        shared.set('players', playersMap);
+      }
+
+      answersMap = shared.get('answers');
+      if (!(answersMap instanceof Y.Map)) {
+        answersMap = new Y.Map();
+        shared.set('answers', answersMap);
+      }
+
+      metaMap = shared.get('meta');
+      if (!(metaMap instanceof Y.Map)) {
+        metaMap = new Y.Map();
+        shared.set('meta', metaMap);
+      }
+
+      PLAYERS.forEach((key) => {
+        if (!playersMap.has(key)) playersMap.set(key, DEFAULT_NAMES[key]);
+      });
+      if (!metaMap.has('createdAt')) metaMap.set('createdAt', Date.now());
+      if (!metaMap.has('updatedAt')) metaMap.set('updatedAt', Date.now());
+    }
+
+    function setupAwareness() {
+      const savedNick = localStorage.getItem('rjpq_sync_nick') || '未命名隊友';
+      const nickname = String(dom.nicknameInput.value || savedNick || '未命名隊友').trim().slice(0, 20) || '未命名隊友';
+      provider.awareness.setLocalStateField('user', {
+        name: nickname,
+        room: currentRoom,
+        joinedAt: Date.now()
+      });
+      dom.nicknameInput.value = nickname;
+    }
+
+    function observeAll() {
+      const rerender = () => renderAll();
+      playersMap.observe(rerender);
+      answersMap.observe(rerender);
+      metaMap.observe(rerender);
+      cleanupFns.push(() => playersMap.unobserve(rerender));
+      cleanupFns.push(() => answersMap.unobserve(rerender));
+      cleanupFns.push(() => metaMap.unobserve(rerender));
+
+      const awarenessHandler = () => {
+        renderPresence();
+        updateStatus();
+      };
+      provider.awareness.on('change', awarenessHandler);
+      cleanupFns.push(() => provider.awareness.off('change', awarenessHandler));
+
+      const statusHandler = ({ status }) => {
+        wsStatus = status;
+        connectionError = '';
+        updateStatus();
+      };
+      provider.on('status', statusHandler);
+      cleanupFns.push(() => provider.off('status', statusHandler));
+
+      const syncHandler = (isSynced) => {
+        remoteSynced = !!isSynced;
+        updateStatus();
+      };
+      provider.on('sync', syncHandler);
+      cleanupFns.push(() => provider.off('sync', syncHandler));
+
+      const closeHandler = () => {
+        if (currentRoom) {
+          connectionError = '連線已關閉';
+          updateStatus();
         }
-      }
-      refreshAll();
+      };
+      provider.on('connection-close', closeHandler);
+      cleanupFns.push(() => provider.off('connection-close', closeHandler));
+
+      const errorHandler = () => {
+        connectionError = '連線錯誤';
+        updateStatus();
+      };
+      provider.on('connection-error', errorHandler);
+      cleanupFns.push(() => provider.off('connection-error', errorHandler));
+
+      const idbSyncedHandler = () => {
+        cacheSynced = true;
+        updateStatus();
+      };
+      idbProvider.on('synced', idbSyncedHandler);
+      cleanupFns.push(() => idbProvider.off?.('synced', idbSyncedHandler));
+
+      const onlineHandler = () => updateStatus();
+      window.addEventListener('online', onlineHandler);
+      window.addEventListener('offline', onlineHandler);
+      cleanupFns.push(() => window.removeEventListener('online', onlineHandler));
+      cleanupFns.push(() => window.removeEventListener('offline', onlineHandler));
     }
 
-    function findSlotByPeerId(peerId) {
-      return SLOT_KEYS.find((slot) => state.participants[slot]?.peerId === peerId) || "";
-    }
-
-    function getFreeSlot() {
-      return SLOT_KEYS.find((slot) => !state.participants[slot]) || "";
-    }
-
-    let peerScriptPromise = null;
-    let peerLifecycleId = 0;
-
-    function ensurePeerJsLoaded() {
-      if (window.Peer) return Promise.resolve();
-      if (peerScriptPromise) return peerScriptPromise;
-
-      peerScriptPromise = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js";
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => {
-          peerScriptPromise = null;
-          reject(new Error("PEERJS_LOAD_FAILED"));
-        };
-        document.head.appendChild(script);
-      });
-
-      return peerScriptPromise;
-    }
-
-    async function createPeer(peerId) {
-      await ensurePeerJsLoaded();
-      return new Peer(peerId || undefined, {
-        debug: 1,
-        pingInterval: 4000,
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" }
-          ]
-        }
-      });
-    }
-
-    function destroyPeer() {
-      peerLifecycleId += 1;
-      if (hostConn) {
-        try { hostConn.close(); } catch (_) {}
-        hostConn = null;
-      }
-
-      for (const { conn } of guestConnections.values()) {
-        try { conn.close(); } catch (_) {}
-      }
-      guestConnections.clear();
-
-      if (peer) {
-        try { peer.destroy(); } catch (_) {}
-        peer = null;
-      }
-
-      isHost = false;
-      hostReady = false;
-      roomId = "";
-      myPeerId = "";
-      mySlot = "";
-      hostPeerId = "";
-      state = createEmptyState();
-      localXMarks = {};
-      refreshAll();
-    }
-
-    function setupCommonPeerEvents(localPeer) {
-      localPeer.on("error", (err) => {
-        console.error(err);
-        if (err.type === "unavailable-id") {
-          showToast("房號已被使用，請換一個房號");
-          if (isHost && !myPeerId) {
-            const keepRoom = dom.roomInput.value;
-            destroyPeer();
-            dom.roomInput.value = keepRoom;
-          }
-        } else if (err.type === "peer-unavailable") {
-          showToast("找不到房號，請確認房主仍在線");
-          if (!isHost && !myPeerId) {
-            const keepRoom = dom.roomInput.value;
-            destroyPeer();
-            dom.roomInput.value = keepRoom;
-          }
-        } else {
-          showToast(`連線錯誤：${err.type || "unknown"}`);
-        }
-        renderStatus();
-      });
-
-      localPeer.on("disconnected", () => {
-        setStatusText(dom.statusSync, isHost ? "房主重新掛線中" : "重新連線中", "warn-text");
-        try { localPeer.reconnect(); } catch (_) {}
-        renderStatus();
-      });
-
-      localPeer.on("close", () => {
-        renderStatus();
-      });
-    }
-
-    function setupHostConnection(conn) {
-      conn.on("open", () => {
-        console.log("guest connected", conn.peer);
-      });
-
-      conn.on("data", (msg) => {
-        handleHostMessage(conn, msg);
-      });
-
-      conn.on("close", () => {
-        const slot = guestConnections.get(conn.peer)?.slot || findSlotByPeerId(conn.peer);
-        guestConnections.delete(conn.peer);
-        if (slot && state.participants[slot]) {
-          emptyAnswersForSlot(slot);
-          state.participants[slot] = null;
-          broadcastState();
-          showToast(`${SLOT_META[slot].label} 已離線`);
-        } else {
-          refreshAll();
-        }
-      });
-
-      conn.on("error", (err) => {
-        console.error(err);
-      });
-    }
-
-    function handleHostMessage(conn, msg) {
-      if (!msg || typeof msg !== "object") return;
-
-      if (msg.type === "JOIN_REQUEST") {
-        const freeSlot = getFreeSlot();
-        if (!freeSlot) {
-          conn.send({ type: "JOIN_REJECT", reason: "房間已滿（上限 4 人）" });
-          return;
-        }
-
-        const requestedName = sanitizeNick(msg.name) || SLOT_META[freeSlot].label;
-        const assignedColor = getFirstAvailableColor("", [DEFAULT_SLOT_COLORS[freeSlot]]) || DEFAULT_SLOT_COLORS[freeSlot];
-        state.participants[freeSlot] = {
-          slot: freeSlot,
-          name: requestedName,
-          peerId: conn.peer,
-          isHost: false,
-          colorKey: assignedColor
-        };
-        normalizeUniqueColors(freeSlot);
-        guestConnections.set(conn.peer, { conn, slot: freeSlot });
-        conn.send({
-          type: "JOIN_ACCEPT",
-          slot: freeSlot,
-          roomId,
-          hostPeerId: myPeerId
-        });
-        broadcastState();
-        showToast(`${requestedName} 已加入 ${SLOT_META[freeSlot].label}`);
-        return;
-      }
-
-      const senderSlot = guestConnections.get(conn.peer)?.slot || findSlotByPeerId(conn.peer);
-      if (!senderSlot) return;
-
-      if (msg.type === "RENAME_ME") {
-        const next = sanitizeNick(msg.name) || SLOT_META[senderSlot].label;
-        state.participants[senderSlot].name = next;
-        broadcastState();
-        return;
-      }
-
-      if (msg.type === "SET_COLOR") {
-        if (COLOR_OPTIONS[msg.colorKey]) {
-          state.participants[senderSlot].colorKey = msg.colorKey;
-          normalizeUniqueColors(senderSlot);
-          broadcastState();
-        }
-        return;
-      }
-
-      if (msg.type === "SET_ANSWER") {
-        const floor = Number(msg.floor);
-        const value = String(msg.value || "");
-        if (!FLOORS.includes(floor)) return;
-        if (value && !["1", "2", "3", "4"].includes(value)) return;
-        if (value) {
-          const occupiedBy = getSelectedSlotByValue(floor, value, senderSlot);
-          if (occupiedBy) {
-            conn.send({ type: "ACTION_REJECT", reason: `${getSlotName(occupiedBy)} 已選 ${value}` });
-            conn.send({ type: "STATE_SYNC", state });
-            return;
-          }
-        }
-        setAnswerLocal(floor, senderSlot, value);
-        broadcastState();
-        return;
-      }
-
-      if (msg.type === "CLEAR_BOARD") {
-        for (const slot of SLOT_KEYS) {
-          emptyAnswersForSlot(slot);
-        }
-        broadcastState();
-        return;
-      }
-
-      if (msg.type === "LEAVE_ROOM") {
-        emptyAnswersForSlot(senderSlot);
-        state.participants[senderSlot] = null;
-        guestConnections.delete(conn.peer);
-        try { conn.close(); } catch (_) {}
-        broadcastState();
-      }
-    }
-
-    function setupGuestConnection(conn) {
-      hostConn = conn;
-
-      conn.on("open", () => {
-        setStatusText(dom.statusSync, "已連上房主", "online");
-        conn.send({
-          type: "JOIN_REQUEST",
-          name: sanitizeNick(dom.nicknameInput.value) || "玩家"
-        });
-      });
-
-      conn.on("data", (msg) => {
-        handleGuestMessage(msg);
-      });
-
-      conn.on("close", () => {
-        if (roomId) {
-          showToast("房主已離線或房間已關閉");
-        }
-        destroyPeer();
-        restoreFromHash();
-      });
-
-      conn.on("error", (err) => {
-        console.error(err);
-        showToast("連線到房主失敗");
-      });
-    }
-
-    function handleGuestMessage(msg) {
-      if (!msg || typeof msg !== "object") return;
-
-      if (msg.type === "JOIN_ACCEPT") {
-        mySlot = msg.slot;
-        roomId = msg.roomId;
-        loadLocalXMarks(roomId);
-        hostPeerId = msg.hostPeerId;
-        window.location.hash = new URLSearchParams({ room: roomId }).toString();
-        saveLocalPrefs();
-        refreshAll();
-        return;
-      }
-
-      if (msg.type === "JOIN_REJECT") {
-        showToast(msg.reason || "加入失敗");
-        destroyPeer();
-        restoreFromHash();
-        return;
-      }
-
-      if (msg.type === "ACTION_REJECT") {
-        showToast(msg.reason || "此數字已被其他人選走");
-        return;
-      }
-
-      if (msg.type === "STATE_SYNC" && msg.state) {
-        state = msg.state;
-        normalizeUniqueColors();
-        const found = findSlotByPeerId(myPeerId);
-        if (found) mySlot = found;
-        refreshAll();
-      }
-
-      if (msg.type === "KICK" && msg.slot === mySlot) {
-        showToast("你已被房主移出房間");
-        destroyPeer();
-        restoreFromHash();
-      }
-    }
-
-    function sendToHost(payload) {
-      if (isHost) return;
-      if (!hostConn || !hostConn.open) {
-        showToast("目前未連上房主");
-        return;
-      }
-      hostConn.send(payload);
-    }
-
-    function renameSlot(slot, name) {
-      if (!roomId || !state.participants[slot]) return;
-      if (!canEditSlot(slot)) return;
-
-      const next = sanitizeNick(name) || SLOT_META[slot].label;
-      if (isHost) {
-        state.participants[slot].name = next;
-        broadcastState();
-      } else if (slot === mySlot) {
-        sendToHost({ type: "RENAME_ME", name: next });
-      }
-      if (slot === mySlot) {
-        dom.nicknameInput.value = next;
-        saveLocalPrefs();
-      }
-    }
-
-    function changeSlotColor(slot, colorKey) {
-      if (!roomId || !state.participants[slot]) return;
-      if (!canEditSlot(slot)) return;
-      if (!COLOR_OPTIONS[colorKey]) return;
-
-      if (isHost) {
-        state.participants[slot].colorKey = colorKey;
-        broadcastState();
-      } else if (slot === mySlot) {
-        sendToHost({ type: "SET_COLOR", colorKey });
-      }
-    }
-
-    function updateAnswer(slot, floor, value) {
-      if (!roomId || !mySlot || slot !== mySlot) return;
-      if (value) {
-        const occupiedBy = getSelectedSlotByValue(floor, value, slot);
-        if (occupiedBy) {
-          showToast(`${getSlotName(occupiedBy)} 已選 ${value}`);
-          return;
-        }
-      }
-      if (isHost) {
-        setAnswerLocal(floor, slot, value);
-        broadcastState();
-      } else {
-        sendToHost({ type: "SET_ANSWER", floor, value });
-      }
-    }
-
-    function clearBoard() {
-      if (!roomId) return;
-      if (isHost) {
-        for (const slot of SLOT_KEYS) emptyAnswersForSlot(slot);
-        broadcastState();
-      } else {
-        sendToHost({ type: "CLEAR_BOARD" });
-      }
-    }
-
-    function kickSlot(slot) {
-      if (!isHost || !state.participants[slot] || slot === "p1") return;
-      const targetPeerId = state.participants[slot].peerId;
-      const targetConn = guestConnections.get(targetPeerId)?.conn;
-      if (targetConn && targetConn.open) {
-        targetConn.send({ type: "KICK", slot });
-      }
-      emptyAnswersForSlot(slot);
-      state.participants[slot] = null;
-      guestConnections.delete(targetPeerId);
-      try { targetConn && targetConn.close(); } catch (_) {}
-      broadcastState();
-    }
-
-    async function handleCopyLink() {
-      if (!roomId) {
-        showToast("請先建立或加入房間");
-        return;
-      }
-      const ok = await copyText(getInviteLink());
-      showToast(ok ? "已複製邀請連結" : "複製失敗");
-    }
-
-    async function handleCopyRoom() {
-      if (!roomId) {
-        showToast("請先建立或加入房間");
-        return;
-      }
-      const ok = await copyText(roomId);
-      showToast(ok ? "已複製房號" : "複製失敗");
-    }
-
-    function validateNick() {
-      const nick = sanitizeNick(dom.nicknameInput.value);
-      if (!nick) {
-        showToast("請先輸入暱稱");
-        dom.nicknameInput.focus();
-        return "";
-      }
-      dom.nicknameInput.value = nick;
-      saveLocalPrefs();
-      return nick;
-    }
-
-    async function startHost() {
-      if (roomId) {
-        showToast("目前已在房間中");
-        return;
-      }
-      const nick = validateNick();
-      if (!nick) return;
-
-      const nextRoom = sanitizeRoom(dom.roomInput.value) || generateRoomCode();
-      dom.createRoomBtn.disabled = true;
-      dom.joinRoomBtn.disabled = true;
-      dom.statusSync.textContent = "建立中";
-      dom.roomInput.value = nextRoom;
-
-      destroyPeer();
-      const lifecycleId = peerLifecycleId;
-      state = createEmptyState();
-      isHost = true;
-      hostReady = false;
-      roomId = nextRoom;
-      mySlot = "p1";
-
-      try {
-        peer = await createPeer(nextRoom);
-      } catch (err) {
-        console.error(err);
-        destroyPeer();
-        dom.roomInput.value = nextRoom;
-        showToast("PeerJS 載入失敗，請稍後重試");
-        refreshAll();
-        return;
-      }
-      if (lifecycleId !== peerLifecycleId) return;
-
-      setupCommonPeerEvents(peer);
-
-      peer.on("open", (id) => {
-        if (lifecycleId !== peerLifecycleId) return;
-        myPeerId = id;
-        roomId = id;
-        dom.roomInput.value = id;
-        saveLocalPrefs();
-        loadLocalXMarks(roomId);
-        hostPeerId = id;
-        hostReady = true;
-        state.participants.p1 = {
-          slot: "p1",
-          name: nick,
-          peerId: id,
-          isHost: true,
-          colorKey: getFirstAvailableColor("", [DEFAULT_SLOT_COLORS.p1]) || DEFAULT_SLOT_COLORS.p1
-        };
-        normalizeUniqueColors("p1");
-        state.updatedAt = nowTs();
-        peer.on("connection", (conn) => setupHostConnection(conn));
-        window.location.hash = new URLSearchParams({ room: roomId }).toString();
-        refreshAll();
-        showToast(`房間已建立：${roomId}`);
-      });
-    }
-
-    async function startJoin() {
-      if (roomId) {
-        showToast("目前已在房間中");
-        return;
-      }
-      const nick = validateNick();
-      if (!nick) return;
-
-      const targetRoom = sanitizeRoom(dom.roomInput.value);
-      if (!targetRoom) {
-        showToast("請先輸入房號");
+    async function connectRoom(room, password = '') {
+      const safeRoom = sanitizeRoom(room);
+      if (!safeRoom) {
+        showToast('請先輸入房號');
         dom.roomInput.focus();
         return;
       }
 
-      dom.createRoomBtn.disabled = true;
-      dom.joinRoomBtn.disabled = true;
-      dom.statusSync.textContent = "連線中";
-      dom.roomInput.value = targetRoom;
-      saveLocalPrefs();
+      destroySession();
+      currentRoom = safeRoom;
+      currentPassword = String(password || '').trim();
+      currentRoomKey = await buildRoomKey(currentRoom, currentPassword);
+      wsStatus = 'connecting';
+      remoteSynced = false;
+      cacheSynced = false;
+      connectionError = '';
 
-      destroyPeer();
-      const lifecycleId = peerLifecycleId;
-      state = createEmptyState();
-      isHost = false;
-      roomId = targetRoom;
-      hostPeerId = targetRoom;
+      ydoc = new Y.Doc();
+      ensureSharedMaps();
 
-      try {
-        peer = await createPeer();
-      } catch (err) {
-        console.error(err);
-        destroyPeer();
-        dom.roomInput.value = targetRoom;
-        showToast("PeerJS 載入失敗，請稍後重試");
-        refreshAll();
+      provider = new WebsocketProvider(SERVER_URL, currentRoomKey, ydoc, {
+        connect: true,
+        params: {
+          app: 'rjpq-tool',
+          room: currentRoom,
+          v: '3'
+        }
+      });
+
+      idbProvider = new IndexeddbPersistence(currentRoomKey, ydoc);
+
+      observeAll();
+      setupAwareness();
+      renderAll();
+      updateStatus();
+
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams();
+      params.set('room', currentRoom);
+      if (currentPassword) params.set('pwd', currentPassword);
+      url.hash = params.toString();
+      history.replaceState(null, '', url.toString());
+      localStorage.setItem('rjpq_last_room', currentRoom);
+      localStorage.setItem('rjpq_last_room_pw', currentPassword);
+      showToast(`已加入房間：${currentRoom}`);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str);
+    }
+
+    function clearBoard() {
+      if (!answersMap) return;
+      Array.from(answersMap.keys()).forEach((key) => answersMap.delete(key));
+      setMetaTouched();
+    }
+
+    dom.createRoomBtn.addEventListener('click', () => {
+      const code = generateRoomCode();
+      dom.roomInput.value = code;
+      connectRoom(code, dom.passwordInput.value);
+    });
+
+    dom.joinRoomBtn.addEventListener('click', () => {
+      connectRoom(dom.roomInput.value, dom.passwordInput.value);
+    });
+
+    dom.copyRoomBtn.addEventListener('click', async () => {
+      const ok = await copyText(currentRoom || dom.roomInput.value.trim());
+      showToast(ok ? '已複製房號' : '複製失敗');
+    });
+
+    dom.copyLinkBtn.addEventListener('click', async () => {
+      const link = getInviteLink();
+      if (!link) {
+        showToast('請先加入房間');
         return;
       }
-      if (lifecycleId !== peerLifecycleId) return;
+      const ok = await copyText(link);
+      showToast(ok ? '已複製邀請連結' : '複製失敗');
+    });
 
-      setupCommonPeerEvents(peer);
-
-      peer.on("open", (id) => {
-        if (lifecycleId !== peerLifecycleId) return;
-        myPeerId = id;
-        const conn = peer.connect(targetRoom, { reliable: true, metadata: { name: nick } });
-        setupGuestConnection(conn);
-        refreshAll();
-      });
-    }
-
-    function leaveRoom() {
-      if (!roomId) return;
-      if (!confirm("確定要離開房間嗎？")) return;
-
-      if (!isHost && hostConn && hostConn.open) {
-        try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
+    dom.clearBoardBtn.addEventListener('click', () => {
+      if (!currentRoom) {
+        showToast('請先加入房間');
+        return;
       }
-
-      if (isHost) {
-        for (const { conn, slot } of guestConnections.values()) {
-          try { conn.send({ type: "KICK", slot }); } catch (_) {}
-        }
+      if (window.confirm('要清空這個房間的全部平台答案嗎？\n同房的人會一起看到清空結果。')) {
+        clearBoard();
+        showToast('已清空本房答案');
       }
+    });
 
-      destroyPeer();
-      window.location.hash = "";
-      restoreLocalPrefs();
-      showToast("已離開房間");
+    dom.disconnectBtn.addEventListener('click', () => {
+      destroySession();
+      const url = new URL(window.location.href);
+      url.hash = '';
+      history.replaceState(null, '', url.toString());
+      showToast('已離開房間');
+    });
+
+    dom.nicknameInput.addEventListener('change', () => {
+      const nickname = String(dom.nicknameInput.value || '').trim().slice(0, 20) || '未命名隊友';
+      localStorage.setItem('rjpq_sync_nick', nickname);
+      if (provider) {
+        provider.awareness.setLocalStateField('user', {
+          name: nickname,
+          room: currentRoom,
+          joinedAt: Date.now()
+        });
+      }
+      renderPresence();
+    });
+
+    function initStaticUI() {
+      dom.nicknameInput.value = localStorage.getItem('rjpq_sync_nick') || '';
+      dom.roomInput.value = localStorage.getItem('rjpq_last_room') || '';
+      dom.passwordInput.value = localStorage.getItem('rjpq_last_room_pw') || '';
+
+      dom.playerInputs.innerHTML = PLAYERS.map((key, idx) => `
+        <div class="player-box ${playerClass(key)}">
+          <label class="label">隊友 ${idx + 1}</label>
+          <input type="text" disabled value="${DEFAULT_NAMES[key]}" />
+        </div>
+      `).join('');
+
+      dom.boardBody.innerHTML = `
+        <div class="matrix-head">
+          <div class="player-head">樓層</div>
+          ${PLAYERS.map((key) => `<div class="player-head ${playerClass(key)}">${DEFAULT_NAMES[key]}</div>`).join('')}
+        </div>
+        ${DISPLAY_FLOORS.map((floor) => `
+          <div class="matrix-row">
+            <div class="floor-cell"><span class="floor-badge">${floor}F</span></div>
+            ${PLAYERS.map((key) => `
+              <div>
+                <div class="pick-cell ${playerClass(key)}">
+                  <div class="pick-grid">
+                    <button type="button" class="pick-btn" disabled>1</button>
+                    <button type="button" class="pick-btn" disabled>2</button>
+                    <button type="button" class="pick-btn" disabled>3</button>
+                    <button type="button" class="pick-btn" disabled>4</button>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      `;
+
+      renderCopyPlayerActions();
+      updateStatus();
     }
 
-    function reconnectStateView() {
-      refreshAll();
-      showToast("已重新整理畫面狀態");
-    }
-
-    function restoreFromHash() {
-      const hash = window.location.hash.replace(/^#/, "");
-      if (!hash) return;
+    function autoJoinFromUrlOrCache() {
+      const hash = new URL(window.location.href).hash.replace(/^#/, '');
       const params = new URLSearchParams(hash);
-      const room = sanitizeRoom(params.get("room") || hash);
+      const roomFromHash = params.get('room');
+      const pwdFromHash = params.get('pwd');
+      const room = roomFromHash || localStorage.getItem('rjpq_last_room') || '';
+      const pw = roomFromHash ? (pwdFromHash || '') : (localStorage.getItem('rjpq_last_room_pw') || '');
       if (room) {
         dom.roomInput.value = room;
+        dom.passwordInput.value = pw;
+        connectRoom(room, pw);
       }
     }
 
-    function attachGlobalKickActions() {
-      dom.presenceList.addEventListener("click", (event) => {
-        const target = event.target.closest("[data-kick-slot]");
-        if (!target) return;
-        const slot = target.dataset.kickSlot;
-        if (slot && confirm(`確定要移除 ${getSlotName(slot)} 嗎？`)) {
-          kickSlot(slot);
-        }
-      });
-    }
-
-    function renderPresence() {
-      const list = getConnectedParticipants();
-      if (!list.length) {
-        dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
-        return;
-      }
-      dom.presenceList.innerHTML = "";
-      list.forEach((participant) => {
-        const slot = participant.slot;
-        const wrapper = document.createElement("span");
-        wrapper.className = `presence-chip${participant.isHost ? " host" : ""}`;
-        const theme = getTheme(slot);
-        wrapper.style.borderColor = `rgba(${theme.rgb}, .34)`;
-        wrapper.style.background = `rgba(${theme.rgb}, .14)`;
-        wrapper.style.color = theme.color;
-        wrapper.textContent = `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}`;
-        if (isHost && !participant.isHost) {
-          const btn = document.createElement("button");
-          btn.className = "kick-btn";
-          btn.textContent = "移除";
-          btn.dataset.kickSlot = slot;
-          wrapper.appendChild(document.createTextNode(" "));
-          wrapper.appendChild(btn);
-        }
-        dom.presenceList.appendChild(wrapper);
-      });
-    }
-
-    dom.createRoomBtn.addEventListener("click", startHost);
-    dom.joinRoomBtn.addEventListener("click", startJoin);
-    dom.copyLinkBtn.addEventListener("click", handleCopyLink);
-    dom.copyRoomBtn.addEventListener("click", handleCopyRoom);
-    dom.disconnectBtn.addEventListener("click", leaveRoom);
-    dom.clearBoardBtn.addEventListener("click", clearBoard);
-    dom.reconnectBtn.addEventListener("click", reconnectStateView);
-
-    dom.nicknameInput.addEventListener("change", () => {
-      const next = sanitizeNick(dom.nicknameInput.value);
-      dom.nicknameInput.value = next;
-      saveLocalPrefs();
-      if (mySlot && next && state.participants[mySlot]) {
-        renameSlot(mySlot, next);
-      }
-    });
-
-    window.addEventListener("beforeunload", () => {
-      if (!isHost && hostConn && hostConn.open) {
-        try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
-      }
-      if (peer) {
-        try { peer.destroy(); } catch (_) {}
-      }
-    });
-
-    restoreLocalPrefs();
-    restoreFromHash();
-    attachGlobalKickActions();
-    requestAnimationFrame(() => refreshAll());
+    initStaticUI();
+    autoJoinFromUrlOrCache();
   </script>
+
 </body>
 </html>
