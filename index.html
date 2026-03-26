@@ -4,10 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <title>Artale 羅茱平台助手</title>
+  <title>Artale 羅茱平台助手｜PeerJS 同步版</title>
   <style>
     :root {
       --bg: #0b1220;
@@ -414,6 +411,31 @@
       opacity: .9;
     }
 
+    .shared-pick-btn.has-x {
+      position: relative;
+    }
+
+    .shared-pick-btn.has-x::after {
+      content: "✕";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(239, 68, 68, .96);
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 2px 10px rgba(0,0,0,.45);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .shared-pick-btn.has-x .num,
+    .shared-pick-btn.has-x .owner {
+      opacity: .42;
+    }
+
     .shared-pick-btn.empty:hover:not(:disabled) {
       background: #13203a;
       color: #dbeafe;
@@ -649,6 +671,8 @@
     const guestConnections = new Map();
 
     let state = createEmptyState();
+    let localXMarks = {};
+    let suppressTapUntil = 0;
 
     function createEmptyState() {
       const participants = {};
@@ -725,6 +749,50 @@
       params.set("room", roomId);
       url.hash = params.toString();
       return url.toString();
+    }
+
+    function getLocalXStorageKey(targetRoom = roomId) {
+      return `rjpq_local_x::${sanitizeRoom(targetRoom || "default")}`;
+    }
+
+    function loadLocalXMarks(targetRoom = roomId) {
+      const key = getLocalXStorageKey(targetRoom);
+      try {
+        const raw = localStorage.getItem(key);
+        localXMarks = raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        localXMarks = {};
+      }
+      if (!localXMarks || typeof localXMarks !== "object") {
+        localXMarks = {};
+      }
+    }
+
+    function saveLocalXMarks(targetRoom = roomId) {
+      const key = getLocalXStorageKey(targetRoom);
+      try {
+        localStorage.setItem(key, JSON.stringify(localXMarks));
+      } catch (_) {}
+    }
+
+    function getLocalXKey(floor, value) {
+      return `${floor}:${value}`;
+    }
+
+    function hasLocalX(floor, value) {
+      return !!localXMarks[getLocalXKey(floor, value)];
+    }
+
+    function toggleLocalX(floor, value) {
+      if (!roomId) {
+        showToast("請先建立或加入房間");
+        return;
+      }
+      const key = getLocalXKey(floor, value);
+      if (localXMarks[key]) delete localXMarks[key];
+      else localXMarks[key] = 1;
+      saveLocalXMarks();
+      renderBoard();
     }
 
     function saveLocalPrefs() {
@@ -991,11 +1059,12 @@
         const buttons = [1, 2, 3, 4].map((n) => {
           const value = String(n);
           const ownerSlot = selections[value] || "";
-          const ownerName = ownerSlot ? getSlotName(ownerSlot) : "可選";
+          const ownerName = ownerSlot ? getSlotName(ownerSlot) : "";
           const theme = ownerSlot ? getTheme(ownerSlot) : null;
           const classes = ["shared-pick-btn", ownerSlot ? "claimed" : "empty"];
           if (ownerSlot && ownerSlot === mySlot) classes.push("mine");
           if (ownerSlot && ownerSlot !== mySlot) classes.push("locked");
+          if (hasLocalX(floor, value)) classes.push("has-x");
           const style = theme
             ? `style="--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};"`
             : "";
@@ -1031,9 +1100,60 @@
       dom.boardBody.innerHTML = rows;
 
       dom.boardBody.querySelectorAll(".shared-pick-btn[data-floor][data-value]").forEach((btn) => {
+        const floor = Number(btn.dataset.floor);
+        const value = String(btn.dataset.value || "");
+
+        const triggerX = () => {
+          toggleLocalX(floor, value);
+          suppressTapUntil = Date.now() + 550;
+          showToast(hasLocalX(floor, value) ? `${floor}F ${value} 已打 X` : `${floor}F ${value} 已取消 X`);
+        };
+
+        btn.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          triggerX();
+        });
+
+        let touchTimer = null;
+        let touchHandled = false;
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        btn.addEventListener("touchstart", (event) => {
+          const touch = event.touches && event.touches[0];
+          if (!touch) return;
+          touchHandled = false;
+          touchStartX = touch.clientX;
+          touchStartY = touch.clientY;
+          clearTimeout(touchTimer);
+          touchTimer = setTimeout(() => {
+            touchHandled = true;
+            triggerX();
+          }, 420);
+        }, { passive: true });
+
+        btn.addEventListener("touchmove", (event) => {
+          const touch = event.touches && event.touches[0];
+          if (!touch) return;
+          const moved = Math.abs(touch.clientX - touchStartX) > 12 || Math.abs(touch.clientY - touchStartY) > 12;
+          if (moved) {
+            clearTimeout(touchTimer);
+          }
+        }, { passive: true });
+
+        const clearTouch = () => {
+          clearTimeout(touchTimer);
+          touchTimer = null;
+        };
+        btn.addEventListener("touchend", clearTouch, { passive: true });
+        btn.addEventListener("touchcancel", clearTouch, { passive: true });
+
         btn.addEventListener("click", () => {
-          const floor = Number(btn.dataset.floor);
-          const value = String(btn.dataset.value || "");
+          if (touchHandled || Date.now() < suppressTapUntil) {
+            touchHandled = false;
+            return;
+          }
+
           const ownerSlot = btn.dataset.ownerSlot || "";
 
           if (!roomId || !mySlot) {
@@ -1154,6 +1274,7 @@
       mySlot = "";
       hostPeerId = "";
       state = createEmptyState();
+      localXMarks = {};
       refreshAll();
     }
 
@@ -1339,6 +1460,7 @@
       if (msg.type === "JOIN_ACCEPT") {
         mySlot = msg.slot;
         roomId = msg.roomId;
+        loadLocalXMarks(roomId);
         hostPeerId = msg.hostPeerId;
         window.location.hash = new URLSearchParams({ room: roomId }).toString();
         saveLocalPrefs();
@@ -1525,6 +1647,7 @@
         roomId = id;
         dom.roomInput.value = id;
         saveLocalPrefs();
+        loadLocalXMarks(roomId);
         hostPeerId = id;
         hostReady = true;
         state.participants.p1 = {
