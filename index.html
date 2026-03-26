@@ -590,17 +590,16 @@
 
   <div class="toast" id="toast"></div>
 
-  
   <script type="module">
-    import * as Y from 'https://esm.sh/yjs@13.6.30';
-    import { WebsocketProvider } from 'https://esm.sh/y-websocket@3.0.0';
+    import * as Y from 'https://esm.sh/yjs@13.6.27';
+    import { WebsocketProvider } from 'https://esm.sh/y-websocket@1.5.4';
     import { IndexeddbPersistence } from 'https://esm.sh/y-indexeddb@9.0.12';
+    import { Awareness } from 'https://esm.sh/y-protocols@1.0.6/awareness';
 
     const PLAYERS = ['p1', 'p2', 'p3', 'p4'];
     const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
     const DISPLAY_FLOORS = [...FLOORS].reverse();
     const DEFAULT_NAMES = { p1: '玩家1', p2: '玩家2', p3: '玩家3', p4: '玩家4' };
-    const WS_SERVER_URL = 'wss://demos.yjs.dev';
 
     const $ = (id) => document.getElementById(id);
 
@@ -632,12 +631,13 @@
     let playersMap = null;
     let answersMap = null;
     let metaMap = null;
+    let peerCount = 0;
     let currentRoom = '';
     let currentPassword = '';
     let currentDocKey = '';
-    let wsConnected = false;
-    let docSynced = false;
     let localSynced = false;
+    let remoteSynced = false;
+    let wsConnected = false;
     let cleanupFns = [];
 
     function showToast(message) {
@@ -681,21 +681,17 @@
       return String(value || '').trim().replace(/\s+/g, '-').slice(0, 40);
     }
 
-    function sanitizePassword(value) {
-      return String(value || '').trim().slice(0, 50);
-    }
-
     function buildDocKey(room, password) {
-      return password ? `rjpq:${room}::${password}` : `rjpq:${room}`;
+      return password ? `${room}::${password}` : room;
     }
 
     function getInviteLink() {
       if (!currentRoom) return '';
       const url = new URL(window.location.href);
-      const params = new URLSearchParams();
-      params.set('room', currentRoom);
-      if (currentPassword) params.set('pwd', currentPassword);
-      url.hash = params.toString();
+      const hash = new URLSearchParams();
+      hash.set('room', currentRoom);
+      if (currentPassword) hash.set('pwd', currentPassword);
+      url.hash = hash.toString();
       return url.toString();
     }
 
@@ -720,11 +716,6 @@
       setMetaTouched();
     }
 
-    function getAwarenessCount() {
-      if (!provider?.awareness) return currentRoom ? 1 : 0;
-      return Array.from(provider.awareness.getStates().values()).length || (currentRoom ? 1 : 0);
-    }
-
     function updateStatus() {
       dom.statusRoom.textContent = currentRoom || '未加入';
 
@@ -734,25 +725,24 @@
       } else if (!navigator.onLine) {
         dom.statusSync.textContent = '離線中';
         dom.statusSync.classList.add('warn-text');
-      } else if (wsConnected && docSynced) {
+      } else if (wsConnected && remoteSynced) {
         dom.statusSync.textContent = '已同步';
         dom.statusSync.classList.add('online');
       } else if (wsConnected) {
-        dom.statusSync.textContent = '同步中';
-        dom.statusSync.classList.add('warn-text');
-      } else if (localSynced) {
-        dom.statusSync.textContent = '本機已載入';
+        dom.statusSync.textContent = '連線中';
         dom.statusSync.classList.add('warn-text');
       } else {
         dom.statusSync.textContent = '連線中';
         dom.statusSync.classList.add('warn-text');
       }
 
-      dom.statusPeers.textContent = String(getAwarenessCount());
+      const awarenessCount = provider ? Array.from(provider.awareness.getStates().values()).filter(Boolean).length : 0;
+      const totalPeople = currentRoom ? Math.max(awarenessCount, 1) : 0;
+      dom.statusPeers.textContent = String(totalPeople);
     }
 
     function renderPresence() {
-      if (!provider?.awareness) {
+      if (!provider) {
         dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
         return;
       }
@@ -866,7 +856,7 @@
       updateStatus();
     }
 
-    function destroySession(clearRoomState = true) {
+    function destroySession() {
       cleanupFns.forEach((fn) => {
         try { fn(); } catch (_) {}
       });
@@ -875,14 +865,10 @@
       try { idbProvider?.destroy(); } catch (_) {}
       try { ydoc?.destroy(); } catch (_) {}
       ydoc = provider = idbProvider = shared = playersMap = answersMap = metaMap = null;
-      wsConnected = false;
-      docSynced = false;
+      peerCount = 0;
       localSynced = false;
-      if (clearRoomState) {
-        currentRoom = '';
-        currentPassword = '';
-        currentDocKey = '';
-      }
+      currentRoom = '';
+      currentPassword = '';
       updateStatus();
       renderPresence();
       renderAll();
@@ -933,6 +919,7 @@
       cleanupFns.push(() => metaMap.unobserve(rerender));
 
       const awarenessHandler = () => {
+        peerCount = provider ? Array.from(provider.awareness.getStates().values()).filter(Boolean).length : 0;
         renderPresence();
         updateStatus();
       };
@@ -947,8 +934,9 @@
       cleanupFns.push(() => provider.off('status', statusHandler));
 
       const syncHandler = (isSynced) => {
-        docSynced = !!isSynced;
+        remoteSynced = !!isSynced;
         updateStatus();
+        renderPresence();
       };
       provider.on('sync', syncHandler);
       cleanupFns.push(() => provider.off('sync', syncHandler));
@@ -962,58 +950,49 @@
 
     async function connectRoom(room, password = '') {
       const safeRoom = sanitizeRoom(room);
-      const safePassword = sanitizePassword(password);
       if (!safeRoom) {
         showToast('請先輸入房號');
         dom.roomInput.focus();
         return;
       }
 
-      try {
-        currentRoom = safeRoom;
-        currentPassword = safePassword;
-        currentDocKey = buildDocKey(safeRoom, safePassword);
-        destroySession(false);
-        wsConnected = false;
-        docSynced = false;
-        localSynced = false;
+      destroySession();
+      currentRoom = safeRoom;
+      currentPassword = String(password || '');
+      currentDocKey = buildDocKey(currentRoom, currentPassword);
+      localSynced = false;
+      remoteSynced = false;
+      wsConnected = false;
+      peerCount = 0;
 
-        ydoc = new Y.Doc();
-        ensureSharedMaps();
+      ydoc = new Y.Doc();
+      ensureSharedMaps();
 
-        provider = new WebsocketProvider(WS_SERVER_URL, currentDocKey, ydoc, {
-          connect: true,
-          params: safePassword ? { pwd: safePassword } : {}
-        });
+      provider = new WebsocketProvider('wss://demos.yjs.dev', currentDocKey, ydoc, {
+        connect: true,
+        awareness: new Awareness(ydoc)
+      });
 
-        idbProvider = new IndexeddbPersistence(`rjpq-idb:${currentDocKey}`, ydoc);
-        const idbSyncedHandler = () => {
-          localSynced = true;
-          updateStatus();
-        };
-        idbProvider.on('synced', idbSyncedHandler);
-        cleanupFns.push(() => idbProvider.off?.('synced', idbSyncedHandler));
-
-        observeAll();
-        setupAwareness();
-        renderAll();
+      idbProvider = new IndexeddbPersistence(`rjpq-idb-${currentDocKey}`, ydoc);
+      idbProvider.on('synced', () => {
+        localSynced = true;
         updateStatus();
+      });
 
-        const url = new URL(window.location.href);
-        const params = new URLSearchParams();
-        params.set('room', currentRoom);
-        if (currentPassword) params.set('pwd', currentPassword);
-        url.hash = params.toString();
-        history.replaceState(null, '', url.toString());
+      observeAll();
+      setupAwareness();
+      renderAll();
+      updateStatus();
 
-        localStorage.setItem('rjpq_last_room', currentRoom);
-        localStorage.setItem('rjpq_last_room_pw', currentPassword);
-        showToast(`已加入房間：${currentRoom}`);
-      } catch (error) {
-        console.error('connectRoom failed:', error);
-        destroySession();
-        showToast('建立房間失敗，請重新整理後再試');
-      }
+      const url = new URL(window.location.href);
+      const hash = new URLSearchParams();
+      hash.set('room', currentRoom);
+      if (currentPassword) hash.set('pwd', currentPassword);
+      url.hash = hash.toString();
+      history.replaceState(null, '', url.toString());
+      localStorage.setItem('rjpq_last_room', currentRoom);
+      localStorage.setItem('rjpq_last_room_pw', currentPassword);
+      showToast(`已加入房間：${currentRoom}`);
     }
 
     function escapeHtml(str) {
@@ -1034,6 +1013,7 @@
       Array.from(answersMap.keys()).forEach((key) => answersMap.delete(key));
       setMetaTouched();
     }
+
 
     dom.createRoomBtn.addEventListener('click', () => {
       const code = generateRoomCode();
@@ -1060,6 +1040,7 @@
       showToast(ok ? '已複製邀請連結' : '複製失敗');
     });
 
+
     dom.clearBoardBtn.addEventListener('click', () => {
       if (!currentRoom) {
         showToast('請先加入房間');
@@ -1070,6 +1051,7 @@
         showToast('已清空本房答案');
       }
     });
+
 
     dom.disconnectBtn.addEventListener('click', () => {
       destroySession();
@@ -1086,7 +1068,6 @@
         provider.awareness.setLocalStateField('user', { name: nickname, joinedAt: Date.now() });
       }
       renderPresence();
-      updateStatus();
     });
 
     function initStaticUI() {
@@ -1132,10 +1113,10 @@
     function autoJoinFromUrlOrCache() {
       const hash = new URL(window.location.href).hash.replace(/^#/, '');
       const params = new URLSearchParams(hash);
-      const roomFromHash = sanitizeRoom(params.get('room') || '');
-      const pwFromHash = sanitizePassword(params.get('pwd') || '');
+      const roomFromHash = params.get('room');
+      const pwdFromHash = params.get('pwd');
       const room = roomFromHash || localStorage.getItem('rjpq_last_room') || '';
-      const pw = roomFromHash ? pwFromHash : (localStorage.getItem('rjpq_last_room_pw') || '');
+      const pw = roomFromHash ? (pwdFromHash || '') : (localStorage.getItem('rjpq_last_room_pw') || '');
       if (room) {
         dom.roomInput.value = room;
         dom.passwordInput.value = pw;
@@ -1146,6 +1127,5 @@
     initStaticUI();
     autoJoinFromUrlOrCache();
   </script>
-
 </body>
 </html>
