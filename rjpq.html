@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Artale 羅茱平台助手｜矩陣精簡同步版</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #111a2b;
+      --panel-2: #162235;
+      --line: rgba(255,255,255,.08);
+      --text: #eef4ff;
+      --muted: #9fb0c7;
+      --primary: #4f8cff;
+      --primary-2: #2f6ee8;
+      --success: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --btn: #1c2a40;
+      --shadow: 0 14px 30px rgba(0,0,0,.24);
+      --p1: #4f8cff;
+      --p1-2: #2f6ee8;
+      --p1-rgb: 79,140,255;
+      --p2: #22c55e;
+      --p2-2: #16a34a;
+      --p2-rgb: 34,197,94;
+      --p3: #f59e0b;
+      --p3-2: #ea8500;
+      --p3-rgb: 245,158,11;
+      --p4: #ef5da8;
+      --p4-2: #db2777;
+      --p4-rgb: 239,93,168;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: linear-gradient(180deg, #0a1020 0%, #0f172a 100%);
+      color: var(--text);
+      font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    }
+
+    body { padding: 10px; }
+
+    .app {
+      max-width: 860px;
+      margin: 0 auto;
+      display: grid;
+      gap: 10px;
+    }
+
+    .card, details.card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.15;
+      font-weight: 900;
+    }
+
+    .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .mini-chips, .inline-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .mini-chips { justify-content: flex-end; }
+
+    .chip, .status-pill {
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid rgba(79, 140, 255, .2);
+      background: rgba(79, 140, 255, .12);
+      color: #dbeafe;
+      white-space: nowrap;
+    }
+
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .compact-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .stack { display: grid; gap: 8px; }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr 1fr;
+      gap: 8px;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #0d1525;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 11px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: rgba(79, 140, 255, .55);
+      box-shadow: 0 0 0 3px rgba(79, 140, 255, .16);
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 900;
+      transition: transform .15s ease, filter .15s ease;
+    }
+
+    button:active { transform: scale(.98); }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 8px;
+    }
+
+    .btn {
+      min-height: 42px;
+      padding: 10px 12px;
+      color: white;
+      background: linear-gradient(180deg, var(--primary), var(--primary-2));
+    }
+
+    .btn.secondary {
+      background: var(--btn);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .btn.warn {
+      background: linear-gradient(180deg, #f59e0b, #ea8500);
+    }
+
+    .btn.danger {
+      background: linear-gradient(180deg, #ef4444, #dc2626);
+    }
+
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 8px;
+    }
+
+    .player-box {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px;
+    }
+
+    .player-box .label { margin-bottom: 6px; }
+
+    .player-box.player-p1,
+    .player-head.player-p1,
+    .pick-cell.player-p1.has-value { border-color: rgba(var(--p1-rgb), .34); background: rgba(var(--p1-rgb), .12); }
+    .player-box.player-p2,
+    .player-head.player-p2,
+    .pick-cell.player-p2.has-value { border-color: rgba(var(--p2-rgb), .34); background: rgba(var(--p2-rgb), .12); }
+    .player-box.player-p3,
+    .player-head.player-p3,
+    .pick-cell.player-p3.has-value { border-color: rgba(var(--p3-rgb), .34); background: rgba(var(--p3-rgb), .12); }
+    .player-box.player-p4,
+    .player-head.player-p4,
+    .pick-cell.player-p4.has-value { border-color: rgba(var(--p4-rgb), .34); background: rgba(var(--p4-rgb), .12); }
+
+    .player-box.player-p1 input { border-color: rgba(var(--p1-rgb), .28); }
+    .player-box.player-p2 input { border-color: rgba(var(--p2-rgb), .28); }
+    .player-box.player-p3 input { border-color: rgba(var(--p3-rgb), .28); }
+    .player-box.player-p4 input { border-color: rgba(var(--p4-rgb), .28); }
+
+    .status-line {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .status-mini {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 9px;
+    }
+
+    .status-name {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .status-value {
+      font-size: 14px;
+      font-weight: 900;
+      word-break: break-word;
+    }
+
+    .online { color: #86efac; }
+    .warn-text { color: #fde68a; }
+    .danger-text { color: #fca5a5; }
+
+    .presence-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .presence-chip {
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, .12);
+      border: 1px solid rgba(34, 197, 94, .22);
+      font-size: 11px;
+      color: #dcfce7;
+    }
+
+    details.card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    details > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px;
+      font-weight: 900;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::after {
+      content: '展開';
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    details[open] > summary::after { content: '收起'; }
+    details .detail-body {
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .board-card { padding: 10px; }
+
+    .board-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .board-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-2);
+    }
+
+    .matrix {
+      min-width: 620px;
+    }
+
+    .matrix-head, .matrix-row {
+      display: grid;
+      grid-template-columns: 70px repeat(4, minmax(110px, 1fr));
+      align-items: center;
+    }
+
+    .matrix-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #10203a;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .matrix-head > div,
+    .matrix-row > div {
+      padding: 8px 6px;
+      min-width: 0;
+    }
+
+    .matrix-head .player-head {
+      font-size: 12px;
+      font-weight: 900;
+      text-align: center;
+      color: #dbeafe;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .matrix-row {
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+
+    .matrix-row:last-child { border-bottom: 0; }
+
+    .floor-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .floor-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: rgba(79, 140, 255, .14);
+      border: 1px solid rgba(79, 140, 255, .22);
+      font-size: 12px;
+      font-weight: 900;
+      color: #e8f0ff;
+    }
+
+    .pick-cell {
+      width: 100%;
+      min-width: 0;
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.02);
+      transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .pick-cell.has-value {
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+
+    .pick-cell.player-p1.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p1-rgb), .16); }
+    .pick-cell.player-p2.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p2-rgb), .16); }
+    .pick-cell.player-p3.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p3-rgb), .16); }
+    .pick-cell.player-p4.has-value { box-shadow: inset 0 0 0 1px rgba(var(--p4-rgb), .16); }
+
+    .pick-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 4px;
+    }
+
+    .pick-btn {
+      min-height: 34px;
+      padding: 0;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: #0d1525;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .pick-cell.player-p1 .pick-btn.active {
+      background: linear-gradient(180deg, var(--p1), var(--p1-2));
+      color: white;
+      border-color: rgba(255,255,255,.16);
+      box-shadow: 0 6px 14px rgba(var(--p1-rgb), .25);
+    }
+    .pick-cell.player-p2 .pick-btn.active {
+      background: linear-gradient(180deg, var(--p2), var(--p2-2));
+      color: white;
+      border-color: rgba(255,255,255,.16);
+      box-shadow: 0 6px 14px rgba(var(--p2-rgb), .25);
+    }
+    .pick-cell.player-p3 .pick-btn.active {
+      background: linear-gradient(180deg, var(--p3), var(--p3-2));
+      color: white;
+      border-color: rgba(255,255,255,.16);
+      box-shadow: 0 6px 14px rgba(var(--p3-rgb), .25);
+    }
+    .pick-cell.player-p4 .pick-btn.active {
+      background: linear-gradient(180deg, var(--p4), var(--p4-2));
+      color: white;
+      border-color: rgba(255,255,255,.16);
+      box-shadow: 0 6px 14px rgba(var(--p4-rgb), .25);
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 8px;
+    }
+
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      transform: translateX(-50%) translateY(12px);
+      background: rgba(5,10,20,.95);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      opacity: 0;
+      pointer-events: none;
+      transition: .18s ease;
+      z-index: 999;
+      font-size: 14px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 8px; }
+      .title { font-size: 20px; }
+      .header { align-items: flex-start; flex-direction: column; }
+      .mini-chips { justify-content: flex-start; }
+      .row-3, .row-2, .status-line, .quick-actions, .btn-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .players-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .row-3, .row-2, .status-line, .quick-actions, .btn-grid {
+        grid-template-columns: 1fr;
+      }
+      .players-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .matrix {
+        min-width: 560px;
+      }
+      .matrix-head, .matrix-row {
+        grid-template-columns: 62px repeat(4, minmax(98px, 1fr));
+      }
+      .matrix-head > div,
+      .matrix-row > div {
+        padding: 7px 5px;
+      }
+      .pick-cell {
+        padding: 3px;
+      }
+      .pick-grid {
+        gap: 3px;
+      }
+      .pick-btn {
+        min-height: 30px;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="card header">
+      <div>
+        <h1 class="title">Artale 羅茱平台助手</h1>
+        <div class="sub">矩陣精簡版｜直接點 1~4 上色，玩家固定顏色，樓層由下至上 1~10。</div>
+      </div>
+      <div class="mini-chips">
+        <span class="chip">4 人共用</span>
+        <span class="chip">即時同步</span>
+        <span class="chip">點擊上色</span>
+        <span class="chip">本機備份</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="compact-head">
+        <h2 class="section-title" style="margin:0;">房間與玩家</h2>
+        <div class="hint">先加入房間，再同步記錄</div>
+      </div>
+      <div class="stack">
+        <div class="row-3">
+          <div>
+            <label class="label" for="nicknameInput">我的暱稱</label>
+            <input id="nicknameInput" type="text" maxlength="20" placeholder="例如：隊長 / 主教" />
+          </div>
+          <div>
+            <label class="label" for="roomInput">房號</label>
+            <input id="roomInput" type="text" maxlength="40" placeholder="例如：RJ-8421" />
+          </div>
+          <div>
+            <label class="label" for="passwordInput">密語（可不填）</label>
+            <input id="passwordInput" type="password" maxlength="50" placeholder="有需要再填" />
+          </div>
+        </div>
+        <div class="btn-grid">
+          <button class="btn" id="createRoomBtn">建立新房</button>
+          <button class="btn secondary" id="joinRoomBtn">加入房間</button>
+          <button class="btn secondary" id="copyLinkBtn">複製邀請連結</button>
+          <button class="btn secondary" id="copyRoomBtn">複製房號</button>
+        </div>
+        <div class="inline-chips">
+          <span class="status-pill">房間：<strong id="statusRoom">未加入</strong></span>
+          <span class="status-pill">同步：<strong id="statusSync">尚未連線</strong></span>
+          <span class="status-pill">人數：<strong id="statusPeers">0</strong></span>
+          <span class="status-pill">更新：<strong id="lastUpdated">--</strong></span>
+        </div>
+        <div class="players-grid" id="playerInputs"></div>
+        <div class="presence-list" id="presenceList">
+          <span class="presence-chip">尚未加入房間</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card board-card">
+      <div class="board-toolbar">
+        <h2 class="section-title" style="margin:0;">平台記錄</h2>
+        <div class="hint">點 1~4 直接填色｜再點一次可清除</div>
+      </div>
+      <div class="board-scroll">
+        <div class="matrix" id="boardBody"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">單人複製</h2>
+      <div class="quick-actions" id="copyPlayerActions"></div>
+      <div class="quick-actions" style="margin-top:8px;">
+        <button class="btn warn" id="clearBoardBtn">清空本房答案</button>
+        <button class="btn danger" id="disconnectBtn">離開房間</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import * as Y from 'https://esm.sh/yjs@13.6.27';
+    import { WebrtcProvider } from 'https://esm.sh/y-webrtc@10.3.0';
+    import { IndexeddbPersistence } from 'https://esm.sh/y-indexeddb@9.0.12';
+
+    const PLAYERS = ['p1', 'p2', 'p3', 'p4'];
+    const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
+    const DISPLAY_FLOORS = [...FLOORS].reverse();
+    const DEFAULT_NAMES = { p1: '玩家1', p2: '玩家2', p3: '玩家3', p4: '玩家4' };
+
+    const $ = (id) => document.getElementById(id);
+
+    const dom = {
+      nicknameInput: $('nicknameInput'),
+      roomInput: $('roomInput'),
+      passwordInput: $('passwordInput'),
+      createRoomBtn: $('createRoomBtn'),
+      joinRoomBtn: $('joinRoomBtn'),
+      copyLinkBtn: $('copyLinkBtn'),
+      copyRoomBtn: $('copyRoomBtn'),
+      statusRoom: $('statusRoom'),
+      statusSync: $('statusSync'),
+      statusPeers: $('statusPeers'),
+      lastUpdated: $('lastUpdated'),
+      presenceList: $('presenceList'),
+      playerInputs: $('playerInputs'),
+      boardBody: $('boardBody'),
+      copyPlayerActions: $('copyPlayerActions'),
+      clearBoardBtn: $('clearBoardBtn'),
+      disconnectBtn: $('disconnectBtn'),
+      toast: $('toast')
+    };
+
+    let ydoc = null;
+    let provider = null;
+    let idbProvider = null;
+    let shared = null;
+    let playersMap = null;
+    let answersMap = null;
+    let metaMap = null;
+    let peerCount = 0;
+    let currentRoom = '';
+    let currentPassword = '';
+    let localSynced = false;
+    let cleanupFns = [];
+
+    function showToast(message) {
+      dom.toast.textContent = message;
+      dom.toast.classList.add('show');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => dom.toast.classList.remove('show'), 1800);
+    }
+
+    async function copyText(text) {
+      if (!text) return false;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (_) {}
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let result = 'RJ-';
+      for (let i = 0; i < 6; i++) result += chars[Math.floor(Math.random() * chars.length)];
+      return result;
+    }
+
+    function sanitizeRoom(value) {
+      return String(value || '').trim().replace(/\s+/g, '-').slice(0, 40);
+    }
+
+    function getInviteLink() {
+      if (!currentRoom) return '';
+      const url = new URL(window.location.href);
+      url.hash = `room=${encodeURIComponent(currentRoom)}`;
+      return url.toString();
+    }
+
+    function setMetaTouched() {
+      if (!metaMap) return;
+      metaMap.set('updatedAt', Date.now());
+    }
+
+    function getPlayerName(key) {
+      return playersMap?.get(key) || DEFAULT_NAMES[key];
+    }
+
+    function getAnswer(floor, playerKey) {
+      return answersMap?.get(`${floor}:${playerKey}`) || '';
+    }
+
+    function setAnswer(floor, playerKey, value) {
+      if (!answersMap) return;
+      const k = `${floor}:${playerKey}`;
+      if (!value) answersMap.delete(k);
+      else answersMap.set(k, String(value));
+      setMetaTouched();
+    }
+
+    function updateStatus() {
+      dom.statusRoom.textContent = currentRoom || '未加入';
+
+      dom.statusSync.className = '';
+      if (!currentRoom) {
+        dom.statusSync.textContent = '尚未連線';
+      } else if (!navigator.onLine) {
+        dom.statusSync.textContent = '離線中';
+        dom.statusSync.classList.add('warn-text');
+      } else if (peerCount > 0) {
+        dom.statusSync.textContent = '已同步';
+        dom.statusSync.classList.add('online');
+      } else {
+        dom.statusSync.textContent = '等待其他人';
+        dom.statusSync.classList.add('warn-text');
+      }
+
+      const awarenessCount = provider ? Array.from(provider.awareness.getStates().values()).length : 0;
+      const totalPeople = currentRoom ? Math.max(peerCount + 1, awarenessCount || 1) : 0;
+      dom.statusPeers.textContent = String(totalPeople);
+    }
+
+    function renderPresence() {
+      if (!provider) {
+        dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
+        return;
+      }
+      const states = Array.from(provider.awareness.getStates().values());
+      const names = states.map((s) => s?.user?.name).filter(Boolean);
+      dom.presenceList.innerHTML = names.length
+        ? names.map((name) => `<span class="presence-chip">${escapeHtml(name)}</span>`).join('')
+        : '<span class="presence-chip">目前只有你</span>';
+    }
+
+    function playerClass(key) {
+      return `player-${key}`;
+    }
+
+    function renderPlayers() {
+      dom.playerInputs.innerHTML = PLAYERS.map((key, idx) => `
+        <div class="player-box ${playerClass(key)}">
+          <label class="label">隊友 ${idx + 1}</label>
+          <input type="text" data-player-name="${key}" maxlength="20" value="${escapeAttr(getPlayerName(key))}" placeholder="輸入玩家名稱" />
+        </div>
+      `).join('');
+
+      dom.playerInputs.querySelectorAll('[data-player-name]').forEach((input) => {
+        input.addEventListener('change', (e) => {
+          if (!playersMap) return;
+          const key = e.target.dataset.playerName;
+          const value = String(e.target.value || '').trim();
+          playersMap.set(key, value || DEFAULT_NAMES[key]);
+          setMetaTouched();
+        });
+      });
+    }
+
+    function renderBoard() {
+      dom.boardBody.innerHTML = `
+        <div class="matrix-head">
+          <div class="player-head">樓層</div>
+          ${PLAYERS.map((playerKey) => `<div class="player-head ${playerClass(playerKey)}">${escapeHtml(getPlayerName(playerKey))}</div>`).join('')}
+        </div>
+        ${DISPLAY_FLOORS.map((floor) => `
+          <div class="matrix-row">
+            <div class="floor-cell"><span class="floor-badge">${floor}F</span></div>
+            ${PLAYERS.map((playerKey) => {
+              const selected = getAnswer(floor, playerKey);
+              return `
+                <div>
+                  <div class="pick-cell ${playerClass(playerKey)} ${selected ? 'has-value' : ''}">
+                    <div class="pick-grid">
+                      ${[1,2,3,4].map((num) => `
+                        <button type="button" class="pick-btn ${selected === String(num) ? 'active' : ''}" data-floor="${floor}" data-player="${playerKey}" data-value="${num}">${num}</button>
+                      `).join('')}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `).join('')}
+      `;
+
+      dom.boardBody.querySelectorAll('.pick-btn[data-floor][data-player][data-value]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const nextValue = el.dataset.value;
+          const currentValue = getAnswer(el.dataset.floor, el.dataset.player);
+          setAnswer(el.dataset.floor, el.dataset.player, currentValue === nextValue ? '' : nextValue);
+        });
+      });
+    }
+
+    function getPlayerCompactCode(playerKey) {
+      const digits = FLOORS.map((floor) => getAnswer(floor, playerKey) || '0');
+      return `${digits.slice(0, 5).join('')}/${digits.slice(5).join('')}`;
+    }
+
+    function getPlayerCopyText(playerKey) {
+      return `${getPlayerName(playerKey)}: ${getPlayerCompactCode(playerKey)}`;
+    }
+
+    function renderCopyPlayerActions() {
+      if (!dom.copyPlayerActions) return;
+      dom.copyPlayerActions.innerHTML = PLAYERS.map((key, idx) => `
+        <button class="btn secondary ${playerClass(key)}" data-copy-player="${key}">複製 ${escapeHtml(getPlayerName(key) || `玩家${idx + 1}`)} 報位</button>
+      `).join('');
+
+      dom.copyPlayerActions.querySelectorAll('[data-copy-player]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!currentRoom) {
+            showToast('請先加入房間');
+            return;
+          }
+          const key = btn.dataset.copyPlayer;
+          const ok = await copyText(getPlayerCopyText(key));
+          showToast(ok ? `已複製 ${getPlayerName(key)} 報位` : '複製失敗');
+        });
+      });
+    }
+
+    function renderMeta() {
+      const ts = metaMap?.get('updatedAt');
+      dom.lastUpdated.textContent = ts
+        ? new Date(ts).toLocaleString('zh-TW', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : '--';
+    }
+
+    function renderAll() {
+      renderPlayers();
+      renderBoard();
+      renderCopyPlayerActions();
+      renderMeta();
+      renderPresence();
+      updateStatus();
+    }
+
+    function destroySession() {
+      cleanupFns.forEach((fn) => {
+        try { fn(); } catch (_) {}
+      });
+      cleanupFns = [];
+      try { provider?.destroy(); } catch (_) {}
+      try { idbProvider?.destroy(); } catch (_) {}
+      try { ydoc?.destroy(); } catch (_) {}
+      ydoc = provider = idbProvider = shared = playersMap = answersMap = metaMap = null;
+      peerCount = 0;
+      localSynced = false;
+      currentRoom = '';
+      currentPassword = '';
+      updateStatus();
+      renderPresence();
+      renderAll();
+    }
+
+    function ensureSharedMaps() {
+      shared = ydoc.getMap('rjpq-platform');
+
+      playersMap = shared.get('players');
+      if (!(playersMap instanceof Y.Map)) {
+        playersMap = new Y.Map();
+        shared.set('players', playersMap);
+      }
+
+      answersMap = shared.get('answers');
+      if (!(answersMap instanceof Y.Map)) {
+        answersMap = new Y.Map();
+        shared.set('answers', answersMap);
+      }
+
+      metaMap = shared.get('meta');
+      if (!(metaMap instanceof Y.Map)) {
+        metaMap = new Y.Map();
+        shared.set('meta', metaMap);
+      }
+
+      PLAYERS.forEach((key) => {
+        if (!playersMap.has(key)) playersMap.set(key, DEFAULT_NAMES[key]);
+      });
+      if (!metaMap.has('createdAt')) metaMap.set('createdAt', Date.now());
+      if (!metaMap.has('updatedAt')) metaMap.set('updatedAt', Date.now());
+    }
+
+    function setupAwareness() {
+      const savedNick = localStorage.getItem('rjpq_sync_nick') || '未命名隊友';
+      const nickname = String(dom.nicknameInput.value || savedNick || '未命名隊友').trim().slice(0, 20) || '未命名隊友';
+      provider.awareness.setLocalStateField('user', { name: nickname, joinedAt: Date.now() });
+      dom.nicknameInput.value = nickname;
+    }
+
+    function observeAll() {
+      const rerender = () => renderAll();
+      playersMap.observe(rerender);
+      answersMap.observe(rerender);
+      metaMap.observe(rerender);
+      cleanupFns.push(() => playersMap.unobserve(rerender));
+      cleanupFns.push(() => answersMap.unobserve(rerender));
+      cleanupFns.push(() => metaMap.unobserve(rerender));
+
+      const awarenessHandler = () => renderPresence();
+      provider.awareness.on('change', awarenessHandler);
+      cleanupFns.push(() => provider.awareness.off('change', awarenessHandler));
+
+      const peersHandler = (event) => {
+        peerCount = Number(event?.webrtcPeers?.length || event?.peers?.length || 0);
+        updateStatus();
+      };
+      provider.on('peers', peersHandler);
+      cleanupFns.push(() => provider.off('peers', peersHandler));
+
+      const onlineHandler = () => updateStatus();
+      window.addEventListener('online', onlineHandler);
+      window.addEventListener('offline', onlineHandler);
+      cleanupFns.push(() => window.removeEventListener('online', onlineHandler));
+      cleanupFns.push(() => window.removeEventListener('offline', onlineHandler));
+    }
+
+    async function connectRoom(room, password = '') {
+      const safeRoom = sanitizeRoom(room);
+      if (!safeRoom) {
+        showToast('請先輸入房號');
+        dom.roomInput.focus();
+        return;
+      }
+
+      destroySession();
+      currentRoom = safeRoom;
+      currentPassword = String(password || '');
+      localSynced = false;
+      peerCount = 0;
+
+      ydoc = new Y.Doc();
+      ensureSharedMaps();
+
+      provider = new WebrtcProvider(currentRoom, ydoc, {
+        password: currentPassword || null,
+        maxConns: Number.POSITIVE_INFINITY,
+        filterBcConns: false
+      });
+
+      idbProvider = new IndexeddbPersistence(currentRoom, ydoc);
+      idbProvider.on('synced', () => {
+        localSynced = true;
+        updateStatus();
+      });
+
+      observeAll();
+      setupAwareness();
+      renderAll();
+      updateStatus();
+
+      const url = new URL(window.location.href);
+      url.hash = `room=${encodeURIComponent(currentRoom)}`;
+      history.replaceState(null, '', url.toString());
+      localStorage.setItem('rjpq_last_room', currentRoom);
+      localStorage.setItem('rjpq_last_room_pw', currentPassword);
+      showToast(`已加入房間：${currentRoom}`);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str);
+    }
+
+    function clearBoard() {
+      if (!answersMap) return;
+      Array.from(answersMap.keys()).forEach((key) => answersMap.delete(key));
+      setMetaTouched();
+    }
+
+
+    dom.createRoomBtn.addEventListener('click', () => {
+      const code = generateRoomCode();
+      dom.roomInput.value = code;
+      connectRoom(code, dom.passwordInput.value);
+    });
+
+    dom.joinRoomBtn.addEventListener('click', () => {
+      connectRoom(dom.roomInput.value, dom.passwordInput.value);
+    });
+
+    dom.copyRoomBtn.addEventListener('click', async () => {
+      const ok = await copyText(currentRoom || dom.roomInput.value.trim());
+      showToast(ok ? '已複製房號' : '複製失敗');
+    });
+
+    dom.copyLinkBtn.addEventListener('click', async () => {
+      const link = getInviteLink();
+      if (!link) {
+        showToast('請先加入房間');
+        return;
+      }
+      const ok = await copyText(link);
+      showToast(ok ? '已複製邀請連結' : '複製失敗');
+    });
+
+
+    dom.clearBoardBtn.addEventListener('click', () => {
+      if (!currentRoom) {
+        showToast('請先加入房間');
+        return;
+      }
+      if (window.confirm('要清空這個房間的全部平台答案嗎？\n同房的人會一起看到清空結果。')) {
+        clearBoard();
+        showToast('已清空本房答案');
+      }
+    });
+
+
+    dom.disconnectBtn.addEventListener('click', () => {
+      destroySession();
+      const url = new URL(window.location.href);
+      url.hash = '';
+      history.replaceState(null, '', url.toString());
+      showToast('已離開房間');
+    });
+
+    dom.nicknameInput.addEventListener('change', () => {
+      const nickname = String(dom.nicknameInput.value || '').trim().slice(0, 20) || '未命名隊友';
+      localStorage.setItem('rjpq_sync_nick', nickname);
+      if (provider) {
+        provider.awareness.setLocalStateField('user', { name: nickname, joinedAt: Date.now() });
+      }
+      renderPresence();
+    });
+
+    function initStaticUI() {
+      dom.nicknameInput.value = localStorage.getItem('rjpq_sync_nick') || '';
+      dom.roomInput.value = localStorage.getItem('rjpq_last_room') || '';
+      dom.passwordInput.value = localStorage.getItem('rjpq_last_room_pw') || '';
+
+      dom.playerInputs.innerHTML = PLAYERS.map((key, idx) => `
+        <div class="player-box ${playerClass(key)}">
+          <label class="label">隊友 ${idx + 1}</label>
+          <input type="text" disabled value="${DEFAULT_NAMES[key]}" />
+        </div>
+      `).join('');
+
+      dom.boardBody.innerHTML = `
+        <div class="matrix-head">
+          <div class="player-head">樓層</div>
+          ${PLAYERS.map((key) => `<div class="player-head ${playerClass(key)}">${DEFAULT_NAMES[key]}</div>`).join('')}
+        </div>
+        ${DISPLAY_FLOORS.map((floor) => `
+          <div class="matrix-row">
+            <div class="floor-cell"><span class="floor-badge">${floor}F</span></div>
+            ${PLAYERS.map((key) => `
+              <div>
+                <div class="pick-cell ${playerClass(key)}">
+                  <div class="pick-grid">
+                    <button type="button" class="pick-btn" disabled>1</button>
+                    <button type="button" class="pick-btn" disabled>2</button>
+                    <button type="button" class="pick-btn" disabled>3</button>
+                    <button type="button" class="pick-btn" disabled>4</button>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      `;
+
+      renderCopyPlayerActions();
+      updateStatus();
+    }
+
+    function autoJoinFromUrlOrCache() {
+      const hash = new URL(window.location.href).hash.replace(/^#/, '');
+      const params = new URLSearchParams(hash);
+      const roomFromHash = params.get('room');
+      const room = roomFromHash || localStorage.getItem('rjpq_last_room') || '';
+      const pw = roomFromHash ? '' : (localStorage.getItem('rjpq_last_room_pw') || '');
+      if (room) {
+        dom.roomInput.value = room;
+        dom.passwordInput.value = pw;
+        connectRoom(room, pw);
+      }
+    }
+
+    initStaticUI();
+    autoJoinFromUrlOrCache();
+  </script>
+</body>
+</html>
