@@ -557,7 +557,7 @@
         </div>
         <div class="inline-chips">
           <span class="status-pill">房間：<strong id="statusRoom">未加入</strong></span>
-          <span class="status-pill">連線：<strong id="statusConnection">尚未連線</strong></span>
+          <span class="status-pill">連線：<strong id="statusConn">尚未連線</strong></span>
           <span class="status-pill">同步：<strong id="statusSync">未同步</strong></span>
           <span class="status-pill">快取：<strong id="statusCache">未就緒</strong></span>
           <span class="status-pill">人數：<strong id="statusPeers">0</strong></span>
@@ -592,16 +592,16 @@
 
   <div class="toast" id="toast"></div>
 
-    <script type="module">
-    import * as Y from 'https://esm.sh/yjs@13.6.27';
-    import { WebsocketProvider } from 'https://esm.sh/y-websocket@3.0.0';
-    import { IndexeddbPersistence } from 'https://esm.sh/y-indexeddb@9.0.12';
+  <script type="module">
+    import * as Y from 'https://esm.sh/yjs@13.6.27?bundle';
+    import { WebsocketProvider } from 'https://esm.sh/y-websocket@3.0.0?bundle';
+    import { IndexeddbPersistence } from 'https://esm.sh/y-indexeddb@9.0.12?bundle';
 
-    const SERVER_URL = 'wss://demos.yjs.dev/ws';
     const PLAYERS = ['p1', 'p2', 'p3', 'p4'];
     const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
     const DISPLAY_FLOORS = [...FLOORS].reverse();
     const DEFAULT_NAMES = { p1: '玩家1', p2: '玩家2', p3: '玩家3', p4: '玩家4' };
+    const WS_ENDPOINT = 'wss://demos.yjs.dev/ws';
 
     const $ = (id) => document.getElementById(id);
 
@@ -614,13 +614,13 @@
       copyLinkBtn: $('copyLinkBtn'),
       copyRoomBtn: $('copyRoomBtn'),
       statusRoom: $('statusRoom'),
-      statusConnection: $('statusConnection'),
+      statusConn: $('statusConn'),
       statusSync: $('statusSync'),
       statusCache: $('statusCache'),
       statusPeers: $('statusPeers'),
       lastUpdated: $('lastUpdated'),
-      playerInputs: $('playerInputs'),
       presenceList: $('presenceList'),
+      playerInputs: $('playerInputs'),
       boardBody: $('boardBody'),
       copyPlayerActions: $('copyPlayerActions'),
       clearBoardBtn: $('clearBoardBtn'),
@@ -637,11 +637,11 @@
     let metaMap = null;
     let currentRoom = '';
     let currentPassword = '';
-    let currentRoomKey = '';
-    let wsStatus = 'disconnected';
+    let currentDocKey = '';
+    let localSynced = false;
+    let wsConnected = false;
     let remoteSynced = false;
-    let cacheSynced = false;
-    let connectionError = '';
+    let lastAwarenessCount = 0;
     let cleanupFns = [];
 
     function showToast(message) {
@@ -682,40 +682,25 @@
     }
 
     function sanitizeRoom(value) {
-      return String(value || '').trim().replace(/\s+/g, '-').replace(/[^\w-]/g, '').slice(0, 40);
+      return String(value || '').trim().replace(/\s+/g, '-').replace(/[^\w\-]/g, '').slice(0, 40);
     }
 
-    async function digestText(value) {
-      const text = String(value || '');
-      if (!text) return 'open';
-      if (window.crypto?.subtle) {
-        const bytes = new TextEncoder().encode(text);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
-        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-      }
-      return btoa(unescape(encodeURIComponent(text))).replace(/[^a-zA-Z0-9]/g, '').slice(0, 48) || 'open';
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
     }
 
-    async function buildRoomKey(room, password) {
-      const safeRoom = sanitizeRoom(room);
-      const pwdHash = await digestText(password || '');
-      return `rjpq-tool::${safeRoom}::${pwdHash}`;
-    }
-
-    function getInviteLink() {
-      if (!currentRoom) return '';
-      const url = new URL(window.location.href);
-      const params = new URLSearchParams();
-      params.set('room', currentRoom);
-      if (currentPassword) params.set('pwd', currentPassword);
-      url.hash = params.toString();
-      return url.toString();
+    function escapeAttr(str) {
+      return escapeHtml(str);
     }
 
     function setMetaTouched() {
       if (!metaMap) return;
       metaMap.set('updatedAt', Date.now());
-      metaMap.set('updatedBy', String(dom.nicknameInput.value || '').trim() || '未命名隊友');
     }
 
     function getPlayerName(key) {
@@ -734,55 +719,74 @@
       setMetaTouched();
     }
 
+    async function sha256Hex(text) {
+      const data = new TextEncoder().encode(text);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function buildDocKey(room, password) {
+      const hash = await sha256Hex(`${room}\n${password || ''}`);
+      return `rjpq-${room.toLowerCase()}-${hash.slice(0, 16)}`;
+    }
+
+    function getInviteLink() {
+      if (!currentRoom) return '';
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams();
+      params.set('room', currentRoom);
+      if (currentPassword) params.set('pwd', currentPassword);
+      url.hash = params.toString();
+      return url.toString();
+    }
+
+    function playerClass(key) {
+      return `player-${key}`;
+    }
+
     function getAwarenessStates() {
-      if (!provider?.awareness) return [];
-      return Array.from(provider.awareness.getStates().entries());
+      return provider ? Array.from(provider.awareness.getStates().values()) : [];
+    }
+
+    function getPresenceNames() {
+      const names = getAwarenessStates()
+        .map((s) => s?.user?.name)
+        .filter(Boolean);
+      return [...new Set(names)];
     }
 
     function updateStatus() {
       dom.statusRoom.textContent = currentRoom || '未加入';
 
-      dom.statusConnection.className = '';
-      dom.statusSync.className = '';
-      dom.statusCache.className = '';
-
+      dom.statusConn.className = '';
       if (!currentRoom) {
-        dom.statusConnection.textContent = '尚未連線';
-        dom.statusSync.textContent = '未同步';
-        dom.statusCache.textContent = '未就緒';
-        dom.statusPeers.textContent = '0';
-        return;
-      }
-
-      if (!navigator.onLine) {
-        dom.statusConnection.textContent = '裝置離線';
-        dom.statusConnection.classList.add('warn-text');
-      } else if (wsStatus === 'connected') {
-        dom.statusConnection.textContent = 'WebSocket 已連線';
-        dom.statusConnection.classList.add('online');
-      } else if (wsStatus === 'connecting') {
-        dom.statusConnection.textContent = 'WebSocket 連線中';
-        dom.statusConnection.classList.add('warn-text');
-      } else if (connectionError) {
-        dom.statusConnection.textContent = connectionError;
-        dom.statusConnection.classList.add('danger-text');
+        dom.statusConn.textContent = '尚未連線';
+      } else if (!navigator.onLine) {
+        dom.statusConn.textContent = '離線';
+        dom.statusConn.classList.add('danger-text');
+      } else if (wsConnected) {
+        dom.statusConn.textContent = 'WebSocket 已連線';
+        dom.statusConn.classList.add('online');
       } else {
-        dom.statusConnection.textContent = 'WebSocket 未連線';
-        dom.statusConnection.classList.add('warn-text');
+        dom.statusConn.textContent = '連線中';
+        dom.statusConn.classList.add('warn-text');
       }
 
-      if (remoteSynced) {
+      dom.statusSync.className = '';
+      if (!currentRoom) {
+        dom.statusSync.textContent = '未同步';
+      } else if (remoteSynced) {
         dom.statusSync.textContent = '已完成初始同步';
         dom.statusSync.classList.add('online');
-      } else if (wsStatus === 'connected') {
-        dom.statusSync.textContent = '等待初始同步';
-        dom.statusSync.classList.add('warn-text');
       } else {
-        dom.statusSync.textContent = '未同步';
+        dom.statusSync.textContent = '等待初始同步';
         dom.statusSync.classList.add('warn-text');
       }
 
-      if (cacheSynced) {
+      dom.statusCache.className = '';
+      if (!currentRoom) {
+        dom.statusCache.textContent = '未就緒';
+      } else if (localSynced) {
         dom.statusCache.textContent = '本機快取就緒';
         dom.statusCache.classList.add('online');
       } else {
@@ -790,26 +794,22 @@
         dom.statusCache.classList.add('warn-text');
       }
 
-      const states = getAwarenessStates();
-      dom.statusPeers.textContent = String(states.length || 1);
+      const presenceNames = getPresenceNames();
+      const totalPeople = currentRoom ? Math.max(lastAwarenessCount, presenceNames.length, 1) : 0;
+      dom.statusPeers.textContent = String(totalPeople);
     }
 
     function renderPresence() {
-      if (!provider) {
+      if (!provider || !currentRoom) {
         dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
         return;
       }
-      const localId = provider.awareness.clientID;
-      const chips = getAwarenessStates().map(([clientId, state]) => {
-        const name = state?.user?.name || '未命名隊友';
-        const suffix = clientId === localId ? '（我）' : '';
-        return `<span class="presence-chip">${escapeHtml(name)}${suffix}</span>`;
-      });
-      dom.presenceList.innerHTML = chips.length ? chips.join('') : '<span class="presence-chip">目前只有你</span>';
-    }
-
-    function playerClass(key) {
-      return `player-${key}`;
+      const names = getPresenceNames();
+      lastAwarenessCount = Math.max(lastAwarenessCount, names.length);
+      dom.presenceList.innerHTML = names.length
+        ? names.map((name) => `<span class="presence-chip">${escapeHtml(name)}</span>`).join('')
+        : '<span class="presence-chip">已連線，等待其他人加入</span>';
+      updateStatus();
     }
 
     function renderPlayers() {
@@ -916,17 +916,18 @@
         try { fn(); } catch (_) {}
       });
       cleanupFns = [];
+      try { provider?.awareness?.setLocalState(null); } catch (_) {}
       try { provider?.destroy(); } catch (_) {}
       try { idbProvider?.destroy(); } catch (_) {}
       try { ydoc?.destroy(); } catch (_) {}
       ydoc = provider = idbProvider = shared = playersMap = answersMap = metaMap = null;
       currentRoom = '';
       currentPassword = '';
-      currentRoomKey = '';
-      wsStatus = 'disconnected';
+      currentDocKey = '';
+      localSynced = false;
+      wsConnected = false;
       remoteSynced = false;
-      cacheSynced = false;
-      connectionError = '';
+      lastAwarenessCount = 0;
       updateStatus();
       renderPresence();
       renderAll();
@@ -981,15 +982,15 @@
       cleanupFns.push(() => metaMap.unobserve(rerender));
 
       const awarenessHandler = () => {
+        const states = getAwarenessStates();
+        lastAwarenessCount = states.length;
         renderPresence();
-        updateStatus();
       };
       provider.awareness.on('change', awarenessHandler);
       cleanupFns.push(() => provider.awareness.off('change', awarenessHandler));
 
       const statusHandler = ({ status }) => {
-        wsStatus = status;
-        connectionError = '';
+        wsConnected = status === 'connected';
         updateStatus();
       };
       provider.on('status', statusHandler);
@@ -1002,28 +1003,20 @@
       provider.on('sync', syncHandler);
       cleanupFns.push(() => provider.off('sync', syncHandler));
 
-      const closeHandler = () => {
-        if (currentRoom) {
-          connectionError = '連線已關閉';
-          updateStatus();
-        }
-      };
-      provider.on('connection-close', closeHandler);
-      cleanupFns.push(() => provider.off('connection-close', closeHandler));
-
-      const errorHandler = () => {
-        connectionError = '連線錯誤';
+      const connectionCloseHandler = () => {
+        wsConnected = false;
         updateStatus();
       };
-      provider.on('connection-error', errorHandler);
-      cleanupFns.push(() => provider.off('connection-error', errorHandler));
+      provider.on('connection-close', connectionCloseHandler);
+      cleanupFns.push(() => provider.off('connection-close', connectionCloseHandler));
 
-      const idbSyncedHandler = () => {
-        cacheSynced = true;
+      const connectionErrorHandler = () => {
+        wsConnected = false;
         updateStatus();
+        showToast('WebSocket 連線失敗，稍後會自動重試');
       };
-      idbProvider.on('synced', idbSyncedHandler);
-      cleanupFns.push(() => idbProvider.off?.('synced', idbSyncedHandler));
+      provider.on('connection-error', connectionErrorHandler);
+      cleanupFns.push(() => provider.off('connection-error', connectionErrorHandler));
 
       const onlineHandler = () => updateStatus();
       window.addEventListener('online', onlineHandler);
@@ -1042,26 +1035,29 @@
 
       destroySession();
       currentRoom = safeRoom;
-      currentPassword = String(password || '').trim();
-      currentRoomKey = await buildRoomKey(currentRoom, currentPassword);
-      wsStatus = 'connecting';
+      currentPassword = String(password || '');
+      currentDocKey = await buildDocKey(currentRoom, currentPassword);
+      localSynced = false;
+      wsConnected = false;
       remoteSynced = false;
-      cacheSynced = false;
-      connectionError = '';
+      lastAwarenessCount = 0;
 
       ydoc = new Y.Doc();
       ensureSharedMaps();
 
-      provider = new WebsocketProvider(SERVER_URL, currentRoomKey, ydoc, {
+      provider = new WebsocketProvider(WS_ENDPOINT, currentDocKey, ydoc, {
         connect: true,
         params: {
-          app: 'rjpq-tool',
           room: currentRoom,
-          v: '3'
+          v: '2'
         }
       });
 
-      idbProvider = new IndexeddbPersistence(currentRoomKey, ydoc);
+      idbProvider = new IndexeddbPersistence(currentDocKey, ydoc);
+      idbProvider.on('synced', () => {
+        localSynced = true;
+        updateStatus();
+      });
 
       observeAll();
       setupAwareness();
@@ -1079,33 +1075,30 @@
       showToast(`已加入房間：${currentRoom}`);
     }
 
-    function escapeHtml(str) {
-      return String(str)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
-    }
-
-    function escapeAttr(str) {
-      return escapeHtml(str);
-    }
-
     function clearBoard() {
       if (!answersMap) return;
       Array.from(answersMap.keys()).forEach((key) => answersMap.delete(key));
       setMetaTouched();
     }
 
-    dom.createRoomBtn.addEventListener('click', () => {
+    dom.createRoomBtn.addEventListener('click', async () => {
       const code = generateRoomCode();
       dom.roomInput.value = code;
-      connectRoom(code, dom.passwordInput.value);
+      try {
+        await connectRoom(code, dom.passwordInput.value);
+      } catch (err) {
+        console.error(err);
+        showToast('建立房間失敗');
+      }
     });
 
-    dom.joinRoomBtn.addEventListener('click', () => {
-      connectRoom(dom.roomInput.value, dom.passwordInput.value);
+    dom.joinRoomBtn.addEventListener('click', async () => {
+      try {
+        await connectRoom(dom.roomInput.value, dom.passwordInput.value);
+      } catch (err) {
+        console.error(err);
+        showToast('加入房間失敗');
+      }
     });
 
     dom.copyRoomBtn.addEventListener('click', async () => {
@@ -1195,23 +1188,27 @@
       updateStatus();
     }
 
-    function autoJoinFromUrlOrCache() {
+    async function autoJoinFromUrlOrCache() {
       const hash = new URL(window.location.href).hash.replace(/^#/, '');
       const params = new URLSearchParams(hash);
       const roomFromHash = params.get('room');
-      const pwdFromHash = params.get('pwd');
+      const pwdFromHash = params.get('pwd') || '';
       const room = roomFromHash || localStorage.getItem('rjpq_last_room') || '';
-      const pw = roomFromHash ? (pwdFromHash || '') : (localStorage.getItem('rjpq_last_room_pw') || '');
+      const pw = roomFromHash ? pwdFromHash : (localStorage.getItem('rjpq_last_room_pw') || '');
       if (room) {
         dom.roomInput.value = room;
         dom.passwordInput.value = pw;
-        connectRoom(room, pw);
+        try {
+          await connectRoom(room, pw);
+        } catch (err) {
+          console.error(err);
+          showToast('自動加入房間失敗');
+        }
       }
     }
 
     initStaticUI();
     autoJoinFromUrlOrCache();
   </script>
-
 </body>
 </html>
