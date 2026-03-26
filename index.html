@@ -5,7 +5,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Artale 羅茱平台助手｜PeerJS 同步版</title>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     :root {
       --bg: #0b1220;
@@ -480,7 +479,7 @@
     <section class="card header">
       <div>
         <h1 class="title">Artale 羅茱平台助手</h1>
-        <div class="sub">PeerJS 房間同步版｜房主建立房號、其他人加入同房｜直接點 1~4 上色｜玩家固定顏色。</div>
+        <div class="sub">PeerJS 房間同步版｜預設不自動開房｜按下建立/加入後才載入連線｜直接點 1~4 上色｜玩家固定顏色。</div>
       </div>
       <div class="mini-chips">
         <span class="chip">4 人共用</span>
@@ -530,7 +529,7 @@
         </div>
 
         <div class="help-line">
-          提醒：這版是 PeerJS 連線。若同房跨裝置仍失敗，通常和網路環境或 P2P 打洞有關，先重試建立／加入一次。
+          提醒：這版不會在頁面載入時自動開房，只有按建立或加入才會初始化 PeerJS；若房主短暫掉線，系統會自動嘗試重掛訊號。
         </div>
       </div>
     </section>
@@ -629,9 +628,9 @@
     function sanitizeRoom(value) {
       return String(value || "")
         .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9\-]/g, "")
-        .slice(0, 40);
+        .replace(/\s+/g, "")
+        .replace(/[^A-Za-z0-9\-_]/g, "")
+        .slice(0, 80);
     }
 
     function sanitizeNick(value) {
@@ -691,14 +690,11 @@
 
     function saveLocalPrefs() {
       localStorage.setItem("rjpq_peerjs_nick", dom.nicknameInput.value.trim());
-      localStorage.setItem("rjpq_peerjs_room", dom.roomInput.value.trim());
     }
 
     function restoreLocalPrefs() {
       const nick = localStorage.getItem("rjpq_peerjs_nick") || "";
-      const room = localStorage.getItem("rjpq_peerjs_room") || "";
       if (nick) dom.nicknameInput.value = nick;
-      if (room) dom.roomInput.value = room;
     }
 
     function emptyAnswersForSlot(slot) {
@@ -944,9 +940,33 @@
       return SLOT_KEYS.find((slot) => !state.participants[slot]) || "";
     }
 
-    function createPeer(peerId) {
+    let peerScriptPromise = null;
+    let peerLifecycleId = 0;
+
+    function ensurePeerJsLoaded() {
+      if (window.Peer) return Promise.resolve();
+      if (peerScriptPromise) return peerScriptPromise;
+
+      peerScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js";
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => {
+          peerScriptPromise = null;
+          reject(new Error("PEERJS_LOAD_FAILED"));
+        };
+        document.head.appendChild(script);
+      });
+
+      return peerScriptPromise;
+    }
+
+    async function createPeer(peerId) {
+      await ensurePeerJsLoaded();
       return new Peer(peerId || undefined, {
         debug: 1,
+        pingInterval: 4000,
         config: {
           iceServers: [
             { urls: "stun:stun.l.google.com:19302" },
@@ -957,6 +977,7 @@
     }
 
     function destroyPeer() {
+      peerLifecycleId += 1;
       if (hostConn) {
         try { hostConn.close(); } catch (_) {}
         hostConn = null;
@@ -986,14 +1007,14 @@
       localPeer.on("error", (err) => {
         console.error(err);
         if (err.type === "unavailable-id") {
-          showToast("房號已被使用，請換一個");
+          showToast("房號已被使用，請換一個房號");
           if (isHost && !myPeerId) {
             const keepRoom = dom.roomInput.value;
             destroyPeer();
             dom.roomInput.value = keepRoom;
           }
         } else if (err.type === "peer-unavailable") {
-          showToast("找不到房號，請確認是否正確");
+          showToast("找不到房號，請確認房主仍在線");
           if (!isHost && !myPeerId) {
             const keepRoom = dom.roomInput.value;
             destroyPeer();
@@ -1006,7 +1027,13 @@
       });
 
       localPeer.on("disconnected", () => {
-        setStatusText(dom.statusSync, "連線中斷", "danger-text");
+        setStatusText(dom.statusSync, isHost ? "房主重新掛線中" : "重新連線中", "warn-text");
+        try { localPeer.reconnect(); } catch (_) {}
+        renderStatus();
+      });
+
+      localPeer.on("close", () => {
+        renderStatus();
       });
     }
 
@@ -1256,7 +1283,7 @@
       return nick;
     }
 
-    function startHost() {
+    async function startHost() {
       if (roomId) {
         showToast("目前已在房間中");
         return;
@@ -1265,22 +1292,39 @@
       if (!nick) return;
 
       const nextRoom = sanitizeRoom(dom.roomInput.value) || generateRoomCode();
+      dom.createRoomBtn.disabled = true;
+      dom.joinRoomBtn.disabled = true;
+      dom.statusSync.textContent = "建立中";
       dom.roomInput.value = nextRoom;
-      saveLocalPrefs();
 
       destroyPeer();
+      const lifecycleId = peerLifecycleId;
       state = createEmptyState();
       isHost = true;
       hostReady = false;
       roomId = nextRoom;
       mySlot = "p1";
 
-      peer = createPeer(nextRoom);
+      try {
+        peer = await createPeer(nextRoom);
+      } catch (err) {
+        console.error(err);
+        destroyPeer();
+        dom.roomInput.value = nextRoom;
+        showToast("PeerJS 載入失敗，請稍後重試");
+        refreshAll();
+        return;
+      }
+      if (lifecycleId !== peerLifecycleId) return;
+
       setupCommonPeerEvents(peer);
 
       peer.on("open", (id) => {
+        if (lifecycleId !== peerLifecycleId) return;
         myPeerId = id;
         roomId = id;
+        dom.roomInput.value = id;
+        saveLocalPrefs();
         hostPeerId = id;
         hostReady = true;
         state.participants.p1 = {
@@ -1297,7 +1341,7 @@
       });
     }
 
-    function startJoin() {
+    async function startJoin() {
       if (roomId) {
         showToast("目前已在房間中");
         return;
@@ -1311,18 +1355,36 @@
         dom.roomInput.focus();
         return;
       }
+
+      dom.createRoomBtn.disabled = true;
+      dom.joinRoomBtn.disabled = true;
+      dom.statusSync.textContent = "連線中";
+      dom.roomInput.value = targetRoom;
       saveLocalPrefs();
 
       destroyPeer();
+      const lifecycleId = peerLifecycleId;
       state = createEmptyState();
       isHost = false;
       roomId = targetRoom;
       hostPeerId = targetRoom;
 
-      peer = createPeer();
+      try {
+        peer = await createPeer();
+      } catch (err) {
+        console.error(err);
+        destroyPeer();
+        dom.roomInput.value = targetRoom;
+        showToast("PeerJS 載入失敗，請稍後重試");
+        refreshAll();
+        return;
+      }
+      if (lifecycleId !== peerLifecycleId) return;
+
       setupCommonPeerEvents(peer);
 
       peer.on("open", (id) => {
+        if (lifecycleId !== peerLifecycleId) return;
         myPeerId = id;
         const conn = peer.connect(targetRoom, { reliable: true, metadata: { name: nick } });
         setupGuestConnection(conn);
@@ -1362,7 +1424,6 @@
       const room = sanitizeRoom(params.get("room") || hash);
       if (room) {
         dom.roomInput.value = room;
-        saveLocalPrefs();
       }
     }
 
@@ -1430,7 +1491,7 @@
     restoreLocalPrefs();
     restoreFromHash();
     attachGlobalKickActions();
-    refreshAll();
+    requestAnimationFrame(() => refreshAll());
   </script>
 </body>
 </html>
