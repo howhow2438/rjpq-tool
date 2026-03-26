@@ -590,6 +590,7 @@
 
   <div class="toast" id="toast"></div>
 
+  
   <script type="module">
     import * as Y from 'https://esm.sh/yjs@13.6.30';
     import { WebsocketProvider } from 'https://esm.sh/y-websocket@3.0.0';
@@ -738,6 +739,9 @@
         dom.statusSync.classList.add('online');
       } else if (wsConnected) {
         dom.statusSync.textContent = '同步中';
+        dom.statusSync.classList.add('warn-text');
+      } else if (localSynced) {
+        dom.statusSync.textContent = '本機已載入';
         dom.statusSync.classList.add('warn-text');
       } else {
         dom.statusSync.textContent = '連線中';
@@ -965,45 +969,51 @@
         return;
       }
 
-      currentRoom = safeRoom;
-      currentPassword = safePassword;
-      currentDocKey = buildDocKey(safeRoom, safePassword);
-      destroySession(false);
-      wsConnected = false;
-      docSynced = false;
-      localSynced = false;
+      try {
+        currentRoom = safeRoom;
+        currentPassword = safePassword;
+        currentDocKey = buildDocKey(safeRoom, safePassword);
+        destroySession(false);
+        wsConnected = false;
+        docSynced = false;
+        localSynced = false;
 
-      ydoc = new Y.Doc();
-      ensureSharedMaps();
+        ydoc = new Y.Doc();
+        ensureSharedMaps();
 
-      provider = new WebsocketProvider(WS_SERVER_URL, currentDocKey, ydoc, {
-        connect: true,
-        params: safePassword ? { pwd: safePassword } : {}
-      });
+        provider = new WebsocketProvider(WS_SERVER_URL, currentDocKey, ydoc, {
+          connect: true,
+          params: safePassword ? { pwd: safePassword } : {}
+        });
 
-      idbProvider = new IndexeddbPersistence(`rjpq-idb:${currentDocKey}`, ydoc);
-      const idbSyncedHandler = () => {
-        localSynced = true;
+        idbProvider = new IndexeddbPersistence(`rjpq-idb:${currentDocKey}`, ydoc);
+        const idbSyncedHandler = () => {
+          localSynced = true;
+          updateStatus();
+        };
+        idbProvider.on('synced', idbSyncedHandler);
+        cleanupFns.push(() => idbProvider.off?.('synced', idbSyncedHandler));
+
+        observeAll();
+        setupAwareness();
+        renderAll();
         updateStatus();
-      };
-      idbProvider.on('synced', idbSyncedHandler);
-      cleanupFns.push(() => idbProvider.off?.('synced', idbSyncedHandler));
 
-      observeAll();
-      setupAwareness();
-      renderAll();
-      updateStatus();
+        const url = new URL(window.location.href);
+        const params = new URLSearchParams();
+        params.set('room', currentRoom);
+        if (currentPassword) params.set('pwd', currentPassword);
+        url.hash = params.toString();
+        history.replaceState(null, '', url.toString());
 
-      const url = new URL(window.location.href);
-      const params = new URLSearchParams();
-      params.set('room', currentRoom);
-      if (currentPassword) params.set('pwd', currentPassword);
-      url.hash = params.toString();
-      history.replaceState(null, '', url.toString());
-
-      localStorage.setItem('rjpq_last_room', currentRoom);
-      localStorage.setItem('rjpq_last_room_pw', currentPassword);
-      showToast(`已加入房間：${currentRoom}`);
+        localStorage.setItem('rjpq_last_room', currentRoom);
+        localStorage.setItem('rjpq_last_room_pw', currentPassword);
+        showToast(`已加入房間：${currentRoom}`);
+      } catch (error) {
+        console.error('connectRoom failed:', error);
+        destroySession();
+        showToast('建立房間失敗，請重新整理後再試');
+      }
     }
 
     function escapeHtml(str) {
@@ -1055,8 +1065,7 @@
         showToast('請先加入房間');
         return;
       }
-      if (window.confirm('要清空這個房間的全部平台答案嗎？
-同房的人會一起看到清空結果。')) {
+      if (window.confirm('要清空這個房間的全部平台答案嗎？\n同房的人會一起看到清空結果。')) {
         clearBoard();
         showToast('已清空本房答案');
       }
@@ -1137,5 +1146,6 @@
     initStaticUI();
     autoJoinFromUrlOrCache();
   </script>
+
 </body>
 </html>
