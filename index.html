@@ -382,12 +382,6 @@
       justify-items: center;
       gap: 2px;
       text-align: center;
-      position: relative;
-      overflow: hidden;
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      touch-action: manipulation;
     }
 
     .shared-pick-btn .num {
@@ -653,9 +647,6 @@
     let hostPeerId = "";
     let hostReady = false;
     const guestConnections = new Map();
-    const pendingRemovalTimers = new Map();
-    let reconnectTimer = null;
-    let reconnectAttempt = 0;
 
     let state = createEmptyState();
 
@@ -754,69 +745,6 @@
 
     function getConnectedParticipants() {
       return SLOT_KEYS.map((slot) => state.participants[slot]).filter(Boolean);
-    }
-
-    function clearReconnectTimer() {
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-      }
-    }
-
-    function clearPendingRemoval(peerId) {
-      const timer = pendingRemovalTimers.get(peerId);
-      if (timer) {
-        clearTimeout(timer);
-        pendingRemovalTimers.delete(peerId);
-      }
-    }
-
-    function schedulePendingRemoval(peerId, delay = 20000) {
-      if (!peerId) return;
-      clearPendingRemoval(peerId);
-      const slot = findSlotByPeerId(peerId);
-      if (!slot || !state.participants[slot]) return;
-      const leavingName = state.participants[slot].name;
-      const timer = setTimeout(() => {
-        pendingRemovalTimers.delete(peerId);
-        const liveConn = guestConnections.get(peerId)?.conn;
-        if (liveConn && liveConn.open) return;
-        const existingSlot = findSlotByPeerId(peerId);
-        if (!existingSlot || !state.participants[existingSlot]) return;
-        emptyAnswersForSlot(existingSlot);
-        state.participants[existingSlot] = null;
-        guestConnections.delete(peerId);
-        broadcastState();
-        showToast(`${leavingName} 已離線`);
-      }, delay);
-      pendingRemovalTimers.set(peerId, timer);
-    }
-
-    function scheduleGuestReconnect(delay = 1200) {
-      if (isHost || !roomId || !peer || !hostPeerId) return;
-      clearReconnectTimer();
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        attemptGuestReconnect();
-      }, delay);
-    }
-
-    function attemptGuestReconnect() {
-      if (isHost || !roomId || !peer || !hostPeerId) return;
-      if (hostConn && hostConn.open) return;
-      reconnectAttempt += 1;
-      setStatusText(dom.statusSync, document.hidden ? '背景待重連' : `重新連線中 ${reconnectAttempt}`, 'warn-text');
-      try {
-        const conn = peer.connect(hostPeerId, {
-          reliable: true,
-          metadata: { name: sanitizeNick(dom.nicknameInput.value) || '玩家' }
-        });
-        setupGuestConnection(conn);
-      } catch (err) {
-        console.error(err);
-        scheduleGuestReconnect(Math.min(8000, 1200 + reconnectAttempt * 1200));
-      }
-      refreshAll();
     }
 
     function uniqueOrder(items) {
@@ -1204,9 +1132,6 @@
 
     function destroyPeer() {
       peerLifecycleId += 1;
-      clearReconnectTimer();
-      for (const timer of pendingRemovalTimers.values()) clearTimeout(timer);
-      pendingRemovalTimers.clear();
       if (hostConn) {
         try { hostConn.close(); } catch (_) {}
         hostConn = null;
@@ -1268,7 +1193,6 @@
 
     function setupHostConnection(conn) {
       conn.on("open", () => {
-        clearPendingRemoval(conn.peer);
         console.log("guest connected", conn.peer);
       });
 
@@ -1277,9 +1201,16 @@
       });
 
       conn.on("close", () => {
+        const slot = guestConnections.get(conn.peer)?.slot || findSlotByPeerId(conn.peer);
         guestConnections.delete(conn.peer);
-        schedulePendingRemoval(conn.peer);
-        refreshAll();
+        if (slot && state.participants[slot]) {
+          emptyAnswersForSlot(slot);
+          state.participants[slot] = null;
+          broadcastState();
+          showToast(`${SLOT_META[slot].label} 已離線`);
+        } else {
+          refreshAll();
+        }
       });
 
       conn.on("error", (err) => {
@@ -1291,18 +1222,14 @@
       if (!msg || typeof msg !== "object") return;
 
       if (msg.type === "JOIN_REQUEST") {
-        const existingSlot = findSlotByPeerId(conn.peer);
-        const freeSlot = existingSlot || getFreeSlot();
+        const freeSlot = getFreeSlot();
         if (!freeSlot) {
           conn.send({ type: "JOIN_REJECT", reason: "房間已滿（上限 4 人）" });
           return;
         }
 
-        clearPendingRemoval(conn.peer);
         const requestedName = sanitizeNick(msg.name) || SLOT_META[freeSlot].label;
-        const assignedColor = existingSlot
-          ? (state.participants[freeSlot]?.colorKey || DEFAULT_SLOT_COLORS[freeSlot])
-          : (getFirstAvailableColor("", [DEFAULT_SLOT_COLORS[freeSlot]]) || DEFAULT_SLOT_COLORS[freeSlot]);
+        const assignedColor = getFirstAvailableColor("", [DEFAULT_SLOT_COLORS[freeSlot]]) || DEFAULT_SLOT_COLORS[freeSlot];
         state.participants[freeSlot] = {
           slot: freeSlot,
           name: requestedName,
@@ -1319,7 +1246,7 @@
           hostPeerId: myPeerId
         });
         broadcastState();
-        showToast(existingSlot ? `${requestedName} 已重新連線` : `${requestedName} 已加入 ${SLOT_META[freeSlot].label}`);
+        showToast(`${requestedName} 已加入 ${SLOT_META[freeSlot].label}`);
         return;
       }
 
@@ -1378,14 +1305,9 @@
     }
 
     function setupGuestConnection(conn) {
-      if (hostConn && hostConn !== conn) {
-        try { hostConn.close(); } catch (_) {}
-      }
       hostConn = conn;
 
       conn.on("open", () => {
-        clearReconnectTimer();
-        reconnectAttempt = 0;
         setStatusText(dom.statusSync, "已連上房主", "online");
         conn.send({
           type: "JOIN_REQUEST",
@@ -1398,20 +1320,16 @@
       });
 
       conn.on("close", () => {
-        if (hostConn === conn) hostConn = null;
-        if (!roomId) return;
-        setStatusText(dom.statusSync, document.hidden ? "背景待重連" : "連線中斷，重連中", "warn-text");
-        scheduleGuestReconnect(document.hidden ? 1500 : 800);
-        refreshAll();
+        if (roomId) {
+          showToast("房主已離線或房間已關閉");
+        }
+        destroyPeer();
+        restoreFromHash();
       });
 
       conn.on("error", (err) => {
         console.error(err);
-        if (hostConn === conn) hostConn = null;
-        if (!roomId) return;
-        setStatusText(dom.statusSync, "連線異常，重連中", "warn-text");
-        scheduleGuestReconnect(1200);
-        refreshAll();
+        showToast("連線到房主失敗");
       });
     }
 
@@ -1581,7 +1499,6 @@
 
       destroyPeer();
       const lifecycleId = peerLifecycleId;
-      clearReconnectTimer();
       state = createEmptyState();
       isHost = true;
       hostReady = false;
@@ -1649,7 +1566,6 @@
 
       destroyPeer();
       const lifecycleId = peerLifecycleId;
-      clearReconnectTimer();
       state = createEmptyState();
       isHost = false;
       roomId = targetRoom;
@@ -1770,30 +1686,11 @@
     });
 
     window.addEventListener("beforeunload", () => {
+      if (!isHost && hostConn && hostConn.open) {
+        try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
+      }
       if (peer) {
         try { peer.destroy(); } catch (_) {}
-      }
-    });
-
-    document.addEventListener("visibilitychange", () => {
-      if (!roomId || !peer) return;
-      if (document.visibilityState === "visible") {
-        if (peer.disconnected) {
-          try { peer.reconnect(); } catch (_) {}
-        }
-        if (!isHost && (!hostConn || !hostConn.open)) {
-          scheduleGuestReconnect(200);
-        }
-      }
-    });
-
-    window.addEventListener("focus", () => {
-      if (!roomId || !peer) return;
-      if (peer.disconnected) {
-        try { peer.reconnect(); } catch (_) {}
-      }
-      if (!isHost && (!hostConn || !hostConn.open)) {
-        scheduleGuestReconnect(200);
       }
     });
 
