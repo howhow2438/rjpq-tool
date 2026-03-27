@@ -622,396 +622,411 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const SLOT_KEYS = ["p1", "p2", "p3", "p4"];
-    const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
-    const DISPLAY_FLOORS = [...FLOORS].reverse();
-    const COLOR_OPTIONS = {
-      purple: { label: "紫色", color: "#8b5cf6", color2: "#7c3aed", rgb: "139,92,246" },
-      green:  { label: "綠色", color: "#22c55e", color2: "#16a34a", rgb: "34,197,94" },
-      yellow: { label: "黃色", color: "#facc15", color2: "#eab308", rgb: "250,204,21" },
-      red:    { label: "紅色", color: "#ef4444", color2: "#dc2626", rgb: "239,68,68" }
+  const SLOT_KEYS = ["p1", "p2", "p3", "p4"];
+  const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
+  const DISPLAY_FLOORS = [...FLOORS].reverse();
+  const LONG_PRESS_MS = 550;
+
+  const COLOR_OPTIONS = {
+    purple: { label: "紫色", color: "#8b5cf6", color2: "#7c3aed", rgb: "139,92,246" },
+    green:  { label: "綠色", color: "#22c55e", color2: "#16a34a", rgb: "34,197,94" },
+    yellow: { label: "黃色", color: "#facc15", color2: "#eab308", rgb: "250,204,21" },
+    red:    { label: "紅色", color: "#ef4444", color2: "#dc2626", rgb: "239,68,68" }
+  };
+
+  const DEFAULT_SLOT_COLORS = {
+    p1: "purple",
+    p2: "green",
+    p3: "yellow",
+    p4: "red"
+  };
+
+  const SLOT_META = {
+    p1: { label: "玩家1", className: "player-p1" },
+    p2: { label: "玩家2", className: "player-p2" },
+    p3: { label: "玩家3", className: "player-p3" },
+    p4: { label: "玩家4", className: "player-p4" }
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  const dom = {
+    nicknameInput: $("nicknameInput"),
+    roomInput: $("roomInput"),
+    createRoomBtn: $("createRoomBtn"),
+    joinRoomBtn: $("joinRoomBtn"),
+    copyLinkBtn: $("copyLinkBtn"),
+    copyRoomBtn: $("copyRoomBtn"),
+    disconnectBtn: $("disconnectBtn"),
+    reconnectBtn: $("reconnectBtn"),
+    clearBoardBtn: $("clearBoardBtn"),
+    statusRoom: $("statusRoom"),
+    statusRole: $("statusRole"),
+    statusSync: $("statusSync"),
+    statusPeers: $("statusPeers"),
+    lastUpdated: $("lastUpdated"),
+    presenceList: $("presenceList"),
+    playerInputs: $("playerInputs"),
+    boardBody: $("boardBody"),
+    copyPlayerActions: $("copyPlayerActions"),
+    toast: $("toast")
+  };
+
+  let peer = null;
+  let isHost = false;
+  let roomId = "";
+  let pendingJoinRoom = "";
+  let myPeerId = "";
+  let mySlot = "";
+  let hostConn = null;
+  let hostPeerId = "";
+  let hostReady = false;
+  let joinTimeoutTimer = null;
+  const guestConnections = new Map();
+
+  let state = createEmptyState();
+  let localXMarks = {};
+
+  function createEmptyState() {
+    const participants = {};
+    SLOT_KEYS.forEach((slot) => participants[slot] = null);
+    return {
+      participants,
+      answers: {},
+      updatedAt: 0
     };
+  }
 
-    const DEFAULT_SLOT_COLORS = {
-      p1: "purple",
-      p2: "green",
-      p3: "yellow",
-      p4: "red"
-    };
+  function nowTs() {
+    return Date.now();
+  }
 
-    const SLOT_META = {
-      p1: { label: "玩家1", className: "player-p1" },
-      p2: { label: "玩家2", className: "player-p2" },
-      p3: { label: "玩家3", className: "player-p3" },
-      p4: { label: "玩家4", className: "player-p4" }
-    };
+  function sanitizeRoom(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\s+/g, "")
+      .replace(/[^A-Za-z0-9\-_]/g, "")
+      .slice(0, 80);
+  }
 
-    const $ = (id) => document.getElementById(id);
+  function sanitizeNick(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 20);
+  }
 
-    const dom = {
-      nicknameInput: $("nicknameInput"),
-      roomInput: $("roomInput"),
-      createRoomBtn: $("createRoomBtn"),
-      joinRoomBtn: $("joinRoomBtn"),
-      copyLinkBtn: $("copyLinkBtn"),
-      copyRoomBtn: $("copyRoomBtn"),
-      disconnectBtn: $("disconnectBtn"),
-      reconnectBtn: $("reconnectBtn"),
-      clearBoardBtn: $("clearBoardBtn"),
-      statusRoom: $("statusRoom"),
-      statusRole: $("statusRole"),
-      statusSync: $("statusSync"),
-      statusPeers: $("statusPeers"),
-      lastUpdated: $("lastUpdated"),
-      presenceList: $("presenceList"),
-      playerInputs: $("playerInputs"),
-      boardBody: $("boardBody"),
-      copyPlayerActions: $("copyPlayerActions"),
-      toast: $("toast")
-    };
-
-    let peer = null;
-    let isHost = false;
-    let roomId = "";
-    let myPeerId = "";
-    let mySlot = "";
-    let hostConn = null;
-    let hostPeerId = "";
-    let hostReady = false;
-    const guestConnections = new Map();
-
-    let state = createEmptyState();
-    let localXMarks = {};
-
-    function createEmptyState() {
-      const participants = {};
-      SLOT_KEYS.forEach((slot) => participants[slot] = null);
-      return {
-        participants,
-        answers: {},
-        updatedAt: 0
-      };
+  function generateRoomCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let result = "RJ-";
+    for (let i = 0; i < 6; i++) {
+      result += chars[Math.floor(Math.random() * chars.length)];
     }
+    return result;
+  }
 
-    function nowTs() {
-      return Date.now();
-    }
+  function showToast(message) {
+    dom.toast.textContent = message;
+    dom.toast.classList.add("show");
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => dom.toast.classList.remove("show"), 1800);
+  }
 
-    function sanitizeRoom(value) {
-      return String(value || "")
-        .trim()
-        .replace(/\s+/g, "")
-        .replace(/[^A-Za-z0-9\-_]/g, "")
-        .slice(0, 80);
-    }
-
-    function sanitizeNick(value) {
-      return String(value || "")
-        .trim()
-        .replace(/\s+/g, " ")
-        .slice(0, 20);
-    }
-
-    function generateRoomCode() {
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      let result = "RJ-";
-      for (let i = 0; i < 6; i++) {
-        result += chars[Math.floor(Math.random() * chars.length)];
-      }
-      return result;
-    }
-
-    function showToast(message) {
-      dom.toast.textContent = message;
-      dom.toast.classList.add("show");
-      clearTimeout(showToast._timer);
-      showToast._timer = setTimeout(() => dom.toast.classList.remove("show"), 1800);
-    }
-
-    async function copyText(text) {
-      if (!text) return false;
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(text);
-          return true;
-        }
-      } catch (_) {}
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        ta.remove();
+  async function copyText(text) {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
         return true;
-      } catch (_) {
-        return false;
       }
+    } catch (_) {}
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      return true;
+    } catch (_) {
+      return false;
     }
+  }
 
-    function getInviteLink() {
-      if (!roomId) return "";
-      const url = new URL(window.location.href);
-      const params = new URLSearchParams();
-      params.set("room", roomId);
-      url.hash = params.toString();
-      return url.toString();
+  function getInviteLink() {
+    if (!roomId) return "";
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams();
+    params.set("room", roomId);
+    url.hash = params.toString();
+    return url.toString();
+  }
+
+  function saveLocalPrefs() {
+    localStorage.setItem("rjpq_peerjs_nick", dom.nicknameInput.value.trim());
+  }
+
+  function restoreLocalPrefs() {
+    const nick = localStorage.getItem("rjpq_peerjs_nick") || "";
+    if (nick) dom.nicknameInput.value = nick;
+  }
+
+  function getCurrentRoomDisplay() {
+    return roomId || pendingJoinRoom || "";
+  }
+
+  function getLocalXStorageKey() {
+    const keyRoom = sanitizeRoom(getCurrentRoomDisplay() || dom.roomInput.value || "");
+    return keyRoom ? `rjpq_xmarks_${keyRoom}` : "";
+  }
+
+  function loadLocalXMarks() {
+    const storageKey = getLocalXStorageKey();
+    if (!storageKey) {
+      localXMarks = {};
+      return;
     }
-
-    function saveLocalPrefs() {
-      localStorage.setItem("rjpq_peerjs_nick", dom.nicknameInput.value.trim());
+    try {
+      const parsed = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      localXMarks = parsed && typeof parsed === "object" ? parsed : {};
+    } catch (_) {
+      localXMarks = {};
     }
+  }
 
-    function restoreLocalPrefs() {
-      const nick = localStorage.getItem("rjpq_peerjs_nick") || "";
-      if (nick) dom.nicknameInput.value = nick;
+  function saveLocalXMarks() {
+    const storageKey = getLocalXStorageKey();
+    if (!storageKey) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(localXMarks));
+    } catch (_) {}
+  }
+
+  function hasLocalXMark(floor, value) {
+    return !!localXMarks[`${floor}:${value}`];
+  }
+
+  function toggleLocalXMark(floor, value) {
+    const key = `${floor}:${value}`;
+    if (localXMarks[key]) {
+      delete localXMarks[key];
+    } else {
+      localXMarks[key] = 1;
     }
+    saveLocalXMarks();
+    renderBoard();
+  }
 
-    function getLocalXStorageKey() {
-      const keyRoom = sanitizeRoom(roomId || dom.roomInput.value || "");
-      return keyRoom ? `rjpq_xmarks_${keyRoom}` : "";
+  function emptyAnswersForSlot(slot) {
+    if (!slot) return;
+    for (const floor of FLOORS) {
+      delete state.answers[`${floor}:${slot}`];
     }
+  }
 
-    function loadLocalXMarks() {
-      const storageKey = getLocalXStorageKey();
-      if (!storageKey) {
-        localXMarks = {};
-        return;
+  function getConnectedParticipants() {
+    return SLOT_KEYS.map((slot) => state.participants[slot]).filter(Boolean);
+  }
+
+  function uniqueOrder(items) {
+    return [...new Set(items.filter(Boolean))];
+  }
+
+  function getUsedColorKeys(exceptSlot = "") {
+    const used = new Set();
+    SLOT_KEYS.forEach((slot) => {
+      if (slot === exceptSlot) return;
+      const colorKey = state.participants[slot]?.colorKey;
+      if (COLOR_OPTIONS[colorKey]) used.add(colorKey);
+    });
+    return used;
+  }
+
+  function getFirstAvailableColor(exceptSlot = "", preferredOrder = []) {
+    const used = getUsedColorKeys(exceptSlot);
+    const order = uniqueOrder([...preferredOrder, ...Object.keys(COLOR_OPTIONS)]);
+    return order.find((key) => COLOR_OPTIONS[key] && !used.has(key)) || null;
+  }
+
+  function normalizeUniqueColors(preferredSlot = "") {
+    const taken = new Set();
+
+    if (preferredSlot && state.participants[preferredSlot]) {
+      let keepColor = state.participants[preferredSlot].colorKey;
+      if (!COLOR_OPTIONS[keepColor] || taken.has(keepColor)) {
+        keepColor = getFirstAvailableColor(preferredSlot, [DEFAULT_SLOT_COLORS[preferredSlot]]);
+        state.participants[preferredSlot].colorKey = keepColor || DEFAULT_SLOT_COLORS[preferredSlot] || "purple";
       }
-      try {
-        const parsed = JSON.parse(localStorage.getItem(storageKey) || "{}");
-        localXMarks = parsed && typeof parsed === "object" ? parsed : {};
-      } catch (_) {
-        localXMarks = {};
+      taken.add(state.participants[preferredSlot].colorKey);
+    }
+
+    SLOT_KEYS.forEach((slot) => {
+      if (slot === preferredSlot) return;
+      const participant = state.participants[slot];
+      if (!participant) return;
+
+      let nextColor = participant.colorKey;
+      if (!COLOR_OPTIONS[nextColor] || taken.has(nextColor)) {
+        const preferred = uniqueOrder([DEFAULT_SLOT_COLORS[slot], nextColor]);
+        nextColor = uniqueOrder([...preferred, ...Object.keys(COLOR_OPTIONS)]).find((key) => COLOR_OPTIONS[key] && !taken.has(key)) || DEFAULT_SLOT_COLORS[slot] || "purple";
+        participant.colorKey = nextColor;
       }
+      taken.add(nextColor);
+    });
+  }
+
+  function getColorKey(slot) {
+    return state.participants[slot]?.colorKey || DEFAULT_SLOT_COLORS[slot] || "purple";
+  }
+
+  function getTheme(slot) {
+    return COLOR_OPTIONS[getColorKey(slot)] || COLOR_OPTIONS.purple;
+  }
+
+  function themeStyle(slot) {
+    const theme = getTheme(slot);
+    return `--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};`;
+  }
+
+  function getSlotName(slot) {
+    return state.participants[slot]?.name || SLOT_META[slot].label;
+  }
+
+  function getAnswer(floor, slot) {
+    return state.answers[`${floor}:${slot}`] || "";
+  }
+
+  function getSelectedSlotByValue(floor, value, excludeSlot = "") {
+    const target = String(value || "");
+    if (!target) return "";
+    return SLOT_KEYS.find((slot) => slot !== excludeSlot && getAnswer(floor, slot) === target) || "";
+  }
+
+  function getFloorSelections(floor) {
+    const result = {};
+    SLOT_KEYS.forEach((slot) => {
+      const value = getAnswer(floor, slot);
+      if (value) result[value] = slot;
+    });
+    return result;
+  }
+
+  function setAnswerLocal(floor, slot, value) {
+    const key = `${floor}:${slot}`;
+    if (!value) delete state.answers[key];
+    else state.answers[key] = String(value);
+    state.updatedAt = nowTs();
+  }
+
+  function buildPlayerReport(slot) {
+    const name = getSlotName(slot);
+    const digits = FLOORS.map((floor) => String(getAnswer(floor, slot) || 0));
+    return `${name}: ${digits.slice(0, 5).join("")}/${digits.slice(5).join("")}`;
+  }
+
+  function canEditSlot(slot) {
+    if (!roomId) return false;
+    if (isHost) return true;
+    return mySlot === slot;
+  }
+
+  function setStatusText(el, text, kind) {
+    el.textContent = text;
+    el.className = "";
+    if (kind) el.classList.add(kind);
+  }
+
+  function renderStatus() {
+    const displayRoom = getCurrentRoomDisplay();
+
+    dom.statusRoom.textContent = displayRoom || "未加入";
+    dom.statusRole.textContent = !displayRoom
+      ? "未加入"
+      : (isHost ? "房主" : (mySlot ? `成員 (${SLOT_META[mySlot].label})` : "加入中"));
+
+    if (!displayRoom) {
+      setStatusText(dom.statusSync, "尚未連線", "");
+    } else if (isHost) {
+      setStatusText(dom.statusSync, hostReady ? "房主待命中" : "建立中", hostReady ? "online" : "warn-text");
+    } else if (roomId && hostConn && hostConn.open) {
+      setStatusText(dom.statusSync, "已連上房主", "online");
+    } else {
+      setStatusText(dom.statusSync, "連線中 / 等待房主", "warn-text");
     }
 
-    function saveLocalXMarks() {
-      const storageKey = getLocalXStorageKey();
-      if (!storageKey) return;
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(localXMarks));
-      } catch (_) {}
-    }
-
-    function hasLocalXMark(floor, value) {
-      return !!localXMarks[`${floor}:${value}`];
-    }
-
-    function toggleLocalXMark(floor, value) {
-      const key = `${floor}:${value}`;
-      if (localXMarks[key]) {
-        delete localXMarks[key];
-      } else {
-        localXMarks[key] = 1;
-      }
-      saveLocalXMarks();
-      renderBoard();
-    }
-
-    function emptyAnswersForSlot(slot) {
-      if (!slot) return;
-      for (const floor of FLOORS) {
-        delete state.answers[`${floor}:${slot}`];
-      }
-    }
-
-    function getConnectedParticipants() {
-      return SLOT_KEYS.map((slot) => state.participants[slot]).filter(Boolean);
-    }
-
-    function uniqueOrder(items) {
-      return [...new Set(items.filter(Boolean))];
-    }
-
-    function getUsedColorKeys(exceptSlot = "") {
-      const used = new Set();
-      SLOT_KEYS.forEach((slot) => {
-        if (slot === exceptSlot) return;
-        const colorKey = state.participants[slot]?.colorKey;
-        if (COLOR_OPTIONS[colorKey]) used.add(colorKey);
+    dom.statusPeers.textContent = String(getConnectedParticipants().length);
+    if (state.updatedAt) {
+      dom.lastUpdated.textContent = new Date(state.updatedAt).toLocaleTimeString("zh-TW", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
       });
-      return used;
+    } else {
+      dom.lastUpdated.textContent = "--";
     }
 
-    function getFirstAvailableColor(exceptSlot = "", preferredOrder = []) {
-      const used = getUsedColorKeys(exceptSlot);
-      const order = uniqueOrder([...preferredOrder, ...Object.keys(COLOR_OPTIONS)]);
-      return order.find((key) => COLOR_OPTIONS[key] && !used.has(key)) || null;
+    const inOrJoiningRoom = !!displayRoom;
+
+    dom.createRoomBtn.disabled = inOrJoiningRoom;
+    dom.joinRoomBtn.disabled = inOrJoiningRoom;
+    dom.copyLinkBtn.disabled = !roomId;
+    dom.copyRoomBtn.disabled = !displayRoom;
+    dom.disconnectBtn.disabled = !displayRoom;
+    dom.clearBoardBtn.disabled = !roomId;
+    dom.reconnectBtn.disabled = !displayRoom;
+    dom.roomInput.readOnly = inOrJoiningRoom;
+  }
+
+  function renderPresence() {
+    const list = getConnectedParticipants();
+    if (!list.length) {
+      dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
+      return;
     }
-
-    function normalizeUniqueColors(preferredSlot = "") {
-      const taken = new Set();
-
-      if (preferredSlot && state.participants[preferredSlot]) {
-        let keepColor = state.participants[preferredSlot].colorKey;
-        if (!COLOR_OPTIONS[keepColor] || taken.has(keepColor)) {
-          keepColor = getFirstAvailableColor(preferredSlot, [DEFAULT_SLOT_COLORS[preferredSlot]]);
-          state.participants[preferredSlot].colorKey = keepColor || DEFAULT_SLOT_COLORS[preferredSlot] || "purple";
-        }
-        taken.add(state.participants[preferredSlot].colorKey);
-      }
-
-      SLOT_KEYS.forEach((slot) => {
-        if (slot === preferredSlot) return;
-        const participant = state.participants[slot];
-        if (!participant) return;
-
-        let nextColor = participant.colorKey;
-        if (!COLOR_OPTIONS[nextColor] || taken.has(nextColor)) {
-          const preferred = uniqueOrder([DEFAULT_SLOT_COLORS[slot], nextColor]);
-          nextColor = uniqueOrder([...preferred, ...Object.keys(COLOR_OPTIONS)]).find((key) => COLOR_OPTIONS[key] && !taken.has(key)) || DEFAULT_SLOT_COLORS[slot] || "purple";
-          participant.colorKey = nextColor;
-        }
-        taken.add(nextColor);
-      });
-    }
-
-    function getColorKey(slot) {
-      return state.participants[slot]?.colorKey || DEFAULT_SLOT_COLORS[slot] || "purple";
-    }
-
-    function getTheme(slot) {
-      return COLOR_OPTIONS[getColorKey(slot)] || COLOR_OPTIONS.purple;
-    }
-
-    function themeStyle(slot) {
+    dom.presenceList.innerHTML = "";
+    list.forEach((participant) => {
+      const slot = participant.slot;
+      const wrapper = document.createElement("span");
+      wrapper.className = `presence-chip${participant.isHost ? " host" : ""}`;
       const theme = getTheme(slot);
-      return `--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};`;
-    }
-
-    function getSlotName(slot) {
-      return state.participants[slot]?.name || SLOT_META[slot].label;
-    }
-
-    function getAnswer(floor, slot) {
-      return state.answers[`${floor}:${slot}`] || "";
-    }
-
-    function getSelectedSlotByValue(floor, value, excludeSlot = "") {
-      const target = String(value || "");
-      if (!target) return "";
-      return SLOT_KEYS.find((slot) => slot !== excludeSlot && getAnswer(floor, slot) === target) || "";
-    }
-
-    function getFloorSelections(floor) {
-      const result = {};
-      SLOT_KEYS.forEach((slot) => {
-        const value = getAnswer(floor, slot);
-        if (value) result[value] = slot;
-      });
-      return result;
-    }
-
-    function setAnswerLocal(floor, slot, value) {
-      const key = `${floor}:${slot}`;
-      if (!value) delete state.answers[key];
-      else state.answers[key] = String(value);
-      state.updatedAt = nowTs();
-    }
-
-    function buildPlayerReport(slot) {
-      const name = getSlotName(slot);
-      const digits = FLOORS.map((floor) => String(getAnswer(floor, slot) || 0));
-      return `${name}: ${digits.slice(0, 5).join("")}/${digits.slice(5).join("")}`;
-    }
-
-    function canEditSlot(slot) {
-      if (!roomId) return false;
-      if (isHost) return true;
-      return mySlot === slot;
-    }
-
-    function setStatusText(el, text, kind) {
-      el.textContent = text;
-      el.className = "";
-      if (kind) el.classList.add(kind);
-    }
-
-    function renderStatus() {
-      dom.statusRoom.textContent = roomId || "未加入";
-      dom.statusRole.textContent = !roomId ? "未加入" : (isHost ? "房主" : (mySlot ? `成員 (${SLOT_META[mySlot].label})` : "成員"));
-      if (!roomId) {
-        setStatusText(dom.statusSync, "尚未連線", "");
-      } else if (isHost) {
-        setStatusText(dom.statusSync, hostReady ? "房主待命中" : "建立中", hostReady ? "online" : "warn-text");
-      } else if (hostConn && hostConn.open) {
-        setStatusText(dom.statusSync, "已連上房主", "online");
-      } else {
-        setStatusText(dom.statusSync, "等待房主", "warn-text");
+      wrapper.style.borderColor = `rgba(${theme.rgb}, .34)`;
+      wrapper.style.background = `rgba(${theme.rgb}, .14)`;
+      wrapper.style.color = theme.color;
+      wrapper.textContent = `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}`;
+      if (isHost && !participant.isHost) {
+        const btn = document.createElement("button");
+        btn.className = "kick-btn";
+        btn.textContent = "移除";
+        btn.dataset.kickSlot = slot;
+        wrapper.appendChild(document.createTextNode(" "));
+        wrapper.appendChild(btn);
       }
+      dom.presenceList.appendChild(wrapper);
+    });
+  }
 
-      dom.statusPeers.textContent = String(getConnectedParticipants().length);
-      if (state.updatedAt) {
-        dom.lastUpdated.textContent = new Date(state.updatedAt).toLocaleTimeString("zh-TW", {
-          hour12: false,
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit"
-        });
-      } else {
-        dom.lastUpdated.textContent = "--";
-      }
+  function renderPlayers() {
+    dom.playerInputs.innerHTML = "";
+    SLOT_KEYS.forEach((slot) => {
+      const meta = SLOT_META[slot];
+      const participant = state.participants[slot];
+      const box = document.createElement("div");
+      box.className = `player-box colorized ${meta.className}`;
+      box.style.cssText = themeStyle(slot);
 
-      dom.createRoomBtn.disabled = !!roomId;
-      dom.joinRoomBtn.disabled = !!roomId;
-      dom.copyLinkBtn.disabled = !roomId;
-      dom.copyRoomBtn.disabled = !roomId;
-      dom.disconnectBtn.disabled = !roomId;
-      dom.clearBoardBtn.disabled = !roomId;
-      dom.reconnectBtn.disabled = !roomId;
-      dom.roomInput.readOnly = !!roomId;
-    }
+      const isMine = mySlot === slot;
+      const canEdit = canEditSlot(slot) && !!participant;
+      const headRole = participant
+        ? (participant.isHost ? "房主" : (isMine ? "我的欄位" : "隊友"))
+        : "空位";
 
-    function renderPresence() {
-      const list = getConnectedParticipants();
-      if (!list.length) {
-        dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
-        return;
-      }
-      dom.presenceList.innerHTML = "";
-      list.forEach((participant) => {
-        const slot = participant.slot;
-        const wrapper = document.createElement("span");
-        wrapper.className = `presence-chip${participant.isHost ? " host" : ""}`;
-        const theme = getTheme(slot);
-        wrapper.style.borderColor = `rgba(${theme.rgb}, .34)`;
-        wrapper.style.background = `rgba(${theme.rgb}, .14)`;
-        wrapper.style.color = theme.color;
-        wrapper.textContent = `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}`;
-        if (isHost && !participant.isHost) {
-          const btn = document.createElement("button");
-          btn.className = "kick-btn";
-          btn.textContent = "移除";
-          btn.dataset.kickSlot = slot;
-          wrapper.appendChild(document.createTextNode(" "));
-          wrapper.appendChild(btn);
-        }
-        dom.presenceList.appendChild(wrapper);
-      });
-    }
-
-    function renderPlayers() {
-      dom.playerInputs.innerHTML = "";
-      SLOT_KEYS.forEach((slot) => {
-        const meta = SLOT_META[slot];
-        const participant = state.participants[slot];
-        const box = document.createElement("div");
-        box.className = `player-box colorized ${meta.className}`;
-        box.style.cssText = themeStyle(slot);
-
-        const isMine = mySlot === slot;
-        const canEdit = canEditSlot(slot) && !!participant;
-        const headRole = participant
-          ? (participant.isHost ? "房主" : (isMine ? "我的欄位" : "隊友"))
-          : "空位";
-
-        const usedColorsByOthers = getUsedColorKeys(slot);
-        const colorButtons = Object.entries(COLOR_OPTIONS).map(([key, option]) => {
-          const lockedByOther = usedColorsByOthers.has(key) && getColorKey(slot) !== key;
-          return `
+      const usedColorsByOthers = getUsedColorKeys(slot);
+      const colorButtons = Object.entries(COLOR_OPTIONS).map(([key, option]) => {
+        const lockedByOther = usedColorsByOthers.has(key) && getColorKey(slot) !== key;
+        return `
           <button
             type="button"
             class="color-dot ${getColorKey(slot) === key ? "selected" : ""}"
@@ -1022,754 +1037,860 @@
             ${canEdit && !lockedByOther ? "" : "disabled"}
           ></button>
         `;
-        }).join("");
+      }).join("");
 
-        box.innerHTML = `
-          <div class="player-head colorized ${meta.className}" style="${themeStyle(slot)}">
-            <div class="player-title">${meta.label}</div>
-            <div class="player-role ${isMine ? "me" : ""}">${headRole}</div>
-          </div>
-          <label class="label" for="name-${slot}">顯示名稱</label>
-          <input id="name-${slot}" type="text" maxlength="20" value="${participant ? escapeHtml(participant.name) : ""}" placeholder="${meta.label}" ${canEdit ? "" : "readonly"} />
-          <div class="help-line">顏色：${colorName(getColorKey(slot))}${participant ? `｜ID ${participant.peerId.slice(0, 8)}` : ""}</div>
-          <div class="color-picker-row">${colorButtons}</div>
-        `;
-        dom.playerInputs.appendChild(box);
+      box.innerHTML = `
+        <div class="player-head colorized ${meta.className}" style="${themeStyle(slot)}">
+          <div class="player-title">${meta.label}</div>
+          <div class="player-role ${isMine ? "me" : ""}">${headRole}</div>
+        </div>
+        <label class="label" for="name-${slot}">顯示名稱</label>
+        <input id="name-${slot}" type="text" maxlength="20" value="${participant ? escapeHtml(participant.name) : ""}" placeholder="${meta.label}" ${canEdit ? "" : "readonly"} />
+        <div class="help-line">顏色：${colorName(getColorKey(slot))}${participant ? `｜ID ${participant.peerId.slice(0, 8)}` : ""}</div>
+        <div class="color-picker-row">${colorButtons}</div>
+      `;
+      dom.playerInputs.appendChild(box);
 
-        const input = box.querySelector(`#name-${slot}`);
-        input.addEventListener("change", () => {
-          const next = sanitizeNick(input.value) || meta.label;
-          input.value = next;
-          renameSlot(slot, next);
-        });
+      const input = box.querySelector(`#name-${slot}`);
+      input.addEventListener("change", () => {
+        const next = sanitizeNick(input.value) || meta.label;
+        input.value = next;
+        renameSlot(slot, next);
+      });
 
-        box.querySelectorAll(".color-dot").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            changeSlotColor(slot, btn.dataset.color);
-          });
+      box.querySelectorAll(".color-dot").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          changeSlotColor(slot, btn.dataset.color);
         });
       });
-    }
+    });
+  }
 
-    function renderCopyActions() {
-      dom.copyPlayerActions.innerHTML = "";
-      SLOT_KEYS.forEach((slot) => {
-        const btn = document.createElement("button");
-        btn.className = `btn secondary`;
-        btn.textContent = `複製 ${getSlotName(slot)}`;
-        btn.disabled = !state.participants[slot];
-        btn.addEventListener("click", async () => {
-          const ok = await copyText(buildPlayerReport(slot));
-          showToast(ok ? `已複製 ${getSlotName(slot)}` : "複製失敗");
-        });
-        dom.copyPlayerActions.appendChild(btn);
+  function renderCopyActions() {
+    dom.copyPlayerActions.innerHTML = "";
+    SLOT_KEYS.forEach((slot) => {
+      const btn = document.createElement("button");
+      btn.className = `btn secondary`;
+      btn.textContent = `複製 ${getSlotName(slot)}`;
+      btn.disabled = !state.participants[slot];
+      btn.addEventListener("click", async () => {
+        const ok = await copyText(buildPlayerReport(slot));
+        showToast(ok ? `已複製 ${getSlotName(slot)}` : "複製失敗");
       });
-    }
+      dom.copyPlayerActions.appendChild(btn);
+    });
+  }
 
-    function renderBoard() {
-      const rows = DISPLAY_FLOORS.map((floor) => {
-        const selections = getFloorSelections(floor);
-        const count = Object.keys(selections).length;
+  function bindSharedPickButtonEvents(btn, floor, value) {
+    let pressTimer = null;
 
-        const buttons = [1, 2, 3, 4].map((n) => {
-          const value = String(n);
-          const ownerSlot = selections[value] || "";
-          const ownerName = ownerSlot ? getSlotName(ownerSlot) : "";
-          const theme = ownerSlot ? getTheme(ownerSlot) : null;
-          const classes = ["shared-pick-btn", ownerSlot ? "claimed" : "empty"];
-          if (ownerSlot && ownerSlot === mySlot) classes.push("mine");
-          if (ownerSlot && ownerSlot !== mySlot) classes.push("locked");
-          if (hasLocalXMark(floor, value)) classes.push("x-marked");
-          const style = theme
-            ? `style="--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};"`
-            : "";
-          const disabled = !roomId || !mySlot ? "disabled" : "";
-          return `
-            <button
-              type="button"
-              class="${classes.join(" ")}" ${style}
-              data-floor="${floor}"
-              data-value="${value}"
-              data-owner-slot="${ownerSlot}"
-              ${disabled}
-            >
-              <span class="num">${value}</span>
-              <span class="owner">${escapeHtml(ownerName)}</span>
-            </button>
-          `;
-        }).join("");
+    const clearPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    };
 
+    const startPress = (event) => {
+      if (!value) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+
+      clearPress();
+      btn.dataset.longPressTriggered = "";
+
+      pressTimer = setTimeout(() => {
+        btn.dataset.longPressTriggered = "1";
+        toggleLocalXMark(floor, value);
+        try {
+          if (navigator.vibrate) navigator.vibrate(18);
+        } catch (_) {}
+      }, LONG_PRESS_MS);
+    };
+
+    const endPress = () => {
+      clearPress();
+    };
+
+    btn.addEventListener("pointerdown", startPress, { passive: true });
+    btn.addEventListener("pointerup", endPress, { passive: true });
+    btn.addEventListener("pointerleave", endPress, { passive: true });
+    btn.addEventListener("pointercancel", endPress, { passive: true });
+
+    btn.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      if (!value) return;
+      toggleLocalXMark(floor, value);
+    });
+
+    btn.addEventListener("click", (event) => {
+      if (btn.dataset.longPressTriggered === "1") {
+        btn.dataset.longPressTriggered = "";
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      const ownerSlot = btn.dataset.ownerSlot || "";
+
+      if (!roomId || !mySlot) {
+        showToast("請先建立或加入房間");
+        return;
+      }
+
+      if (ownerSlot && ownerSlot !== mySlot) {
+        showToast(`${getSlotName(ownerSlot)} 已選 ${value}`);
+        return;
+      }
+
+      const current = getAnswer(floor, mySlot);
+      const nextValue = current === value ? "" : value;
+      updateAnswer(mySlot, floor, nextValue);
+    });
+  }
+
+  function renderBoard() {
+    const rows = DISPLAY_FLOORS.map((floor) => {
+      const selections = getFloorSelections(floor);
+      const count = Object.keys(selections).length;
+
+      const buttons = [1, 2, 3, 4].map((n) => {
+        const value = String(n);
+        const ownerSlot = selections[value] || "";
+        const ownerName = ownerSlot ? getSlotName(ownerSlot) : "";
+        const theme = ownerSlot ? getTheme(ownerSlot) : null;
+        const classes = ["shared-pick-btn", ownerSlot ? "claimed" : "empty"];
+        if (ownerSlot && ownerSlot === mySlot) classes.push("mine");
+        if (ownerSlot && ownerSlot !== mySlot) classes.push("locked");
+        if (hasLocalXMark(floor, value)) classes.push("x-marked");
+        const style = theme
+          ? `style="--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};"`
+          : "";
+        const disabled = !roomId || !mySlot ? "disabled" : "";
         return `
-          <div class="shared-floor-card">
-            <div class="floor-cell">
-              <span class="floor-badge">${floor}F</span>
-              <span class="floor-count">${count}/4</span>
-            </div>
-            <div class="shared-pick-cell">
-              <div class="shared-pick-grid">${buttons}</div>
-            </div>
-          </div>
+          <button
+            type="button"
+            class="${classes.join(" ")}" ${style}
+            data-floor="${floor}"
+            data-value="${value}"
+            data-owner-slot="${ownerSlot}"
+            ${disabled}
+          >
+            <span class="num">${value}</span>
+            <span class="owner">${escapeHtml(ownerName)}</span>
+          </button>
         `;
       }).join("");
 
-      dom.boardBody.innerHTML = rows;
+      return `
+        <div class="shared-floor-card">
+          <div class="floor-cell">
+            <span class="floor-badge">${floor}F</span>
+            <span class="floor-count">${count}/4</span>
+          </div>
+          <div class="shared-pick-cell">
+            <div class="shared-pick-grid">${buttons}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
 
-      dom.boardBody.querySelectorAll(".shared-pick-btn[data-floor][data-value]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const floor = Number(btn.dataset.floor);
-          const value = String(btn.dataset.value || "");
-          const ownerSlot = btn.dataset.ownerSlot || "";
+    dom.boardBody.innerHTML = rows;
 
-          if (!roomId || !mySlot) {
-            showToast("請先建立或加入房間");
-            return;
-          }
+    dom.boardBody.querySelectorAll(".shared-pick-btn[data-floor][data-value]").forEach((btn) => {
+      const floor = Number(btn.dataset.floor);
+      const value = String(btn.dataset.value || "");
+      bindSharedPickButtonEvents(btn, floor, value);
+    });
+  }
 
-          if (ownerSlot && ownerSlot !== mySlot) {
-            showToast(`${getSlotName(ownerSlot)} 已選 ${value}`);
-            return;
-          }
+  function colorName(colorKey) {
+    return COLOR_OPTIONS[colorKey]?.label || "紫色";
+  }
 
-          const current = getAnswer(floor, mySlot);
-          const nextValue = current === value ? "" : value;
-          updateAnswer(mySlot, floor, nextValue);
-        });
+  function escapeHtml(str) {
+    return String(str || "").replace(/[&<>"']/g, (m) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[m]);
+  }
 
-        btn.addEventListener("contextmenu", (event) => {
-          event.preventDefault();
-          const floor = Number(btn.dataset.floor);
-          const value = String(btn.dataset.value || "");
-          if (!value) return;
-          toggleLocalXMark(floor, value);
-        });
-      });
+  function refreshAll() {
+    renderStatus();
+    renderPresence();
+    renderPlayers();
+    renderBoard();
+    renderCopyActions();
+  }
+
+  function broadcastState() {
+    if (!isHost) return;
+    state.updatedAt = nowTs();
+    for (const { conn } of guestConnections.values()) {
+      if (conn.open) {
+        conn.send({ type: "STATE_SYNC", state });
+      }
+    }
+    refreshAll();
+  }
+
+  function findSlotByPeerId(peerId) {
+    return SLOT_KEYS.find((slot) => state.participants[slot]?.peerId === peerId) || "";
+  }
+
+  function getFreeSlot() {
+    return SLOT_KEYS.find((slot) => !state.participants[slot]) || "";
+  }
+
+  let peerScriptPromise = null;
+  let peerLifecycleId = 0;
+
+  function ensurePeerJsLoaded() {
+    if (window.Peer) return Promise.resolve();
+    if (peerScriptPromise) return peerScriptPromise;
+
+    peerScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js";
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => {
+        peerScriptPromise = null;
+        reject(new Error("PEERJS_LOAD_FAILED"));
+      };
+      document.head.appendChild(script);
+    });
+
+    return peerScriptPromise;
+  }
+
+  async function createPeer(peerId) {
+    await ensurePeerJsLoaded();
+    return new Peer(peerId || undefined, {
+      host: "0.peerjs.com",
+      port: 443,
+      secure: true,
+      path: "/",
+      debug: 1,
+      pingInterval: 4000,
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" }
+        ]
+      }
+    });
+  }
+
+  function clearJoinTimeout() {
+    if (joinTimeoutTimer) {
+      clearTimeout(joinTimeoutTimer);
+      joinTimeoutTimer = null;
+    }
+  }
+
+  function destroyPeer() {
+    peerLifecycleId += 1;
+    clearJoinTimeout();
+
+    if (hostConn) {
+      try { hostConn.close(); } catch (_) {}
+      hostConn = null;
     }
 
-    function colorName(colorKey) {
-      return COLOR_OPTIONS[colorKey]?.label || "紫色";
+    for (const { conn } of guestConnections.values()) {
+      try { conn.close(); } catch (_) {}
+    }
+    guestConnections.clear();
+
+    if (peer) {
+      try { peer.destroy(); } catch (_) {}
+      peer = null;
     }
 
-    function escapeHtml(str) {
-      return String(str || "").replace(/[&<>"']/g, (m) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      })[m]);
-    }
+    isHost = false;
+    hostReady = false;
+    roomId = "";
+    pendingJoinRoom = "";
+    myPeerId = "";
+    mySlot = "";
+    hostPeerId = "";
+    localXMarks = {};
+    state = createEmptyState();
+    refreshAll();
+  }
 
-    function refreshAll() {
+  function setupCommonPeerEvents(localPeer) {
+    localPeer.on("error", (err) => {
+      console.error(err);
+
+      if (err.type === "unavailable-id") {
+        showToast("房號已被使用，請換一個房號");
+        const keepRoom = dom.roomInput.value;
+        destroyPeer();
+        dom.roomInput.value = keepRoom;
+      } else if (err.type === "peer-unavailable") {
+        showToast("找不到房號，請確認房主仍在線");
+        const keepRoom = dom.roomInput.value;
+        destroyPeer();
+        dom.roomInput.value = keepRoom;
+      } else {
+        showToast(`連線錯誤：${err.type || "unknown"}`);
+      }
+
+      refreshAll();
+    });
+
+    localPeer.on("disconnected", () => {
+      setStatusText(dom.statusSync, isHost ? "房主重新掛線中" : "重新連線中", "warn-text");
+      try { localPeer.reconnect(); } catch (_) {}
       renderStatus();
-      renderPresence();
-      renderPlayers();
-      renderBoard();
-      renderCopyActions();
-    }
+    });
 
-    function broadcastState() {
-      if (!isHost) return;
-      state.updatedAt = nowTs();
-      for (const { conn } of guestConnections.values()) {
-        if (conn.open) {
-          conn.send({ type: "STATE_SYNC", state });
-        }
-      }
-      refreshAll();
-    }
+    localPeer.on("close", () => {
+      renderStatus();
+    });
+  }
 
-    function findSlotByPeerId(peerId) {
-      return SLOT_KEYS.find((slot) => state.participants[slot]?.peerId === peerId) || "";
-    }
+  function setupHostConnection(conn) {
+    conn.on("open", () => {
+      console.log("guest connected", conn.peer);
+    });
 
-    function getFreeSlot() {
-      return SLOT_KEYS.find((slot) => !state.participants[slot]) || "";
-    }
+    conn.on("data", (msg) => {
+      handleHostMessage(conn, msg);
+    });
 
-    let peerScriptPromise = null;
-    let peerLifecycleId = 0;
-
-    function ensurePeerJsLoaded() {
-      if (window.Peer) return Promise.resolve();
-      if (peerScriptPromise) return peerScriptPromise;
-
-      peerScriptPromise = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js";
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => {
-          peerScriptPromise = null;
-          reject(new Error("PEERJS_LOAD_FAILED"));
-        };
-        document.head.appendChild(script);
-      });
-
-      return peerScriptPromise;
-    }
-
-    async function createPeer(peerId) {
-      await ensurePeerJsLoaded();
-      return new Peer(peerId || undefined, {
-        debug: 1,
-        pingInterval: 4000,
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" }
-          ]
-        }
-      });
-    }
-
-    function destroyPeer() {
-      peerLifecycleId += 1;
-      if (hostConn) {
-        try { hostConn.close(); } catch (_) {}
-        hostConn = null;
-      }
-
-      for (const { conn } of guestConnections.values()) {
-        try { conn.close(); } catch (_) {}
-      }
-      guestConnections.clear();
-
-      if (peer) {
-        try { peer.destroy(); } catch (_) {}
-        peer = null;
-      }
-
-      isHost = false;
-      hostReady = false;
-      roomId = "";
-      myPeerId = "";
-      mySlot = "";
-      hostPeerId = "";
-      localXMarks = {};
-      state = createEmptyState();
-      refreshAll();
-    }
-
-    function setupCommonPeerEvents(localPeer) {
-      localPeer.on("error", (err) => {
-        console.error(err);
-        if (err.type === "unavailable-id") {
-          showToast("房號已被使用，請換一個房號");
-          if (isHost && !myPeerId) {
-            const keepRoom = dom.roomInput.value;
-            destroyPeer();
-            dom.roomInput.value = keepRoom;
-          }
-        } else if (err.type === "peer-unavailable") {
-          showToast("找不到房號，請確認房主仍在線");
-          if (!isHost && !myPeerId) {
-            const keepRoom = dom.roomInput.value;
-            destroyPeer();
-            dom.roomInput.value = keepRoom;
-          }
-        } else {
-          showToast(`連線錯誤：${err.type || "unknown"}`);
-        }
-        renderStatus();
-      });
-
-      localPeer.on("disconnected", () => {
-        setStatusText(dom.statusSync, isHost ? "房主重新掛線中" : "重新連線中", "warn-text");
-        try { localPeer.reconnect(); } catch (_) {}
-        renderStatus();
-      });
-
-      localPeer.on("close", () => {
-        renderStatus();
-      });
-    }
-
-    function setupHostConnection(conn) {
-      conn.on("open", () => {
-        console.log("guest connected", conn.peer);
-      });
-
-      conn.on("data", (msg) => {
-        handleHostMessage(conn, msg);
-      });
-
-      conn.on("close", () => {
-        const slot = guestConnections.get(conn.peer)?.slot || findSlotByPeerId(conn.peer);
-        guestConnections.delete(conn.peer);
-        if (slot && state.participants[slot]) {
-          emptyAnswersForSlot(slot);
-          state.participants[slot] = null;
-          broadcastState();
-          showToast(`${SLOT_META[slot].label} 已離線`);
-        } else {
-          refreshAll();
-        }
-      });
-
-      conn.on("error", (err) => {
-        console.error(err);
-      });
-    }
-
-    function handleHostMessage(conn, msg) {
-      if (!msg || typeof msg !== "object") return;
-
-      if (msg.type === "JOIN_REQUEST") {
-        const freeSlot = getFreeSlot();
-        if (!freeSlot) {
-          conn.send({ type: "JOIN_REJECT", reason: "房間已滿（上限 4 人）" });
-          return;
-        }
-
-        const requestedName = sanitizeNick(msg.name) || SLOT_META[freeSlot].label;
-        const assignedColor = getFirstAvailableColor("", [DEFAULT_SLOT_COLORS[freeSlot]]) || DEFAULT_SLOT_COLORS[freeSlot];
-        state.participants[freeSlot] = {
-          slot: freeSlot,
-          name: requestedName,
-          peerId: conn.peer,
-          isHost: false,
-          colorKey: assignedColor
-        };
-        normalizeUniqueColors(freeSlot);
-        guestConnections.set(conn.peer, { conn, slot: freeSlot });
-        conn.send({
-          type: "JOIN_ACCEPT",
-          slot: freeSlot,
-          roomId,
-          hostPeerId: myPeerId
-        });
+    conn.on("close", () => {
+      const slot = guestConnections.get(conn.peer)?.slot || findSlotByPeerId(conn.peer);
+      guestConnections.delete(conn.peer);
+      if (slot && state.participants[slot]) {
+        emptyAnswersForSlot(slot);
+        state.participants[slot] = null;
         broadcastState();
-        showToast(`${requestedName} 已加入 ${SLOT_META[freeSlot].label}`);
-        return;
-      }
-
-      const senderSlot = guestConnections.get(conn.peer)?.slot || findSlotByPeerId(conn.peer);
-      if (!senderSlot) return;
-
-      if (msg.type === "RENAME_ME") {
-        const next = sanitizeNick(msg.name) || SLOT_META[senderSlot].label;
-        state.participants[senderSlot].name = next;
-        broadcastState();
-        return;
-      }
-
-      if (msg.type === "SET_COLOR") {
-        if (COLOR_OPTIONS[msg.colorKey]) {
-          state.participants[senderSlot].colorKey = msg.colorKey;
-          normalizeUniqueColors(senderSlot);
-          broadcastState();
-        }
-        return;
-      }
-
-      if (msg.type === "SET_ANSWER") {
-        const floor = Number(msg.floor);
-        const value = String(msg.value || "");
-        if (!FLOORS.includes(floor)) return;
-        if (value && !["1", "2", "3", "4"].includes(value)) return;
-        if (value) {
-          const occupiedBy = getSelectedSlotByValue(floor, value, senderSlot);
-          if (occupiedBy) {
-            conn.send({ type: "ACTION_REJECT", reason: `${getSlotName(occupiedBy)} 已選 ${value}` });
-            conn.send({ type: "STATE_SYNC", state });
-            return;
-          }
-        }
-        setAnswerLocal(floor, senderSlot, value);
-        broadcastState();
-        return;
-      }
-
-      if (msg.type === "CLEAR_BOARD") {
-        for (const slot of SLOT_KEYS) {
-          emptyAnswersForSlot(slot);
-        }
-        broadcastState();
-        return;
-      }
-
-      if (msg.type === "LEAVE_ROOM") {
-        emptyAnswersForSlot(senderSlot);
-        state.participants[senderSlot] = null;
-        guestConnections.delete(conn.peer);
-        try { conn.close(); } catch (_) {}
-        broadcastState();
-      }
-    }
-
-    function setupGuestConnection(conn) {
-      hostConn = conn;
-
-      conn.on("open", () => {
-        setStatusText(dom.statusSync, "已連上房主", "online");
-        conn.send({
-          type: "JOIN_REQUEST",
-          name: sanitizeNick(dom.nicknameInput.value) || "玩家"
-        });
-      });
-
-      conn.on("data", (msg) => {
-        handleGuestMessage(msg);
-      });
-
-      conn.on("close", () => {
-        if (roomId) {
-          showToast("房主已離線或房間已關閉");
-        }
-        destroyPeer();
-        restoreFromHash();
-      });
-
-      conn.on("error", (err) => {
-        console.error(err);
-        showToast("連線到房主失敗");
-      });
-    }
-
-    function handleGuestMessage(msg) {
-      if (!msg || typeof msg !== "object") return;
-
-      if (msg.type === "JOIN_ACCEPT") {
-        mySlot = msg.slot;
-        roomId = msg.roomId;
-        hostPeerId = msg.hostPeerId;
-        loadLocalXMarks();
-        window.location.hash = new URLSearchParams({ room: roomId }).toString();
-        saveLocalPrefs();
-        refreshAll();
-        return;
-      }
-
-      if (msg.type === "JOIN_REJECT") {
-        showToast(msg.reason || "加入失敗");
-        destroyPeer();
-        restoreFromHash();
-        return;
-      }
-
-      if (msg.type === "ACTION_REJECT") {
-        showToast(msg.reason || "此數字已被其他人選走");
-        return;
-      }
-
-      if (msg.type === "STATE_SYNC" && msg.state) {
-        state = msg.state;
-        normalizeUniqueColors();
-        const found = findSlotByPeerId(myPeerId);
-        if (found) mySlot = found;
+        showToast(`${SLOT_META[slot].label} 已離線`);
+      } else {
         refreshAll();
       }
+    });
 
-      if (msg.type === "KICK" && msg.slot === mySlot) {
-        showToast("你已被房主移出房間");
-        destroyPeer();
-        restoreFromHash();
-      }
-    }
+    conn.on("error", (err) => {
+      console.error(err);
+    });
+  }
 
-    function sendToHost(payload) {
-      if (isHost) return;
-      if (!hostConn || !hostConn.open) {
-        showToast("目前未連上房主");
+  function handleHostMessage(conn, msg) {
+    if (!msg || typeof msg !== "object") return;
+
+    if (msg.type === "JOIN_REQUEST") {
+      const freeSlot = getFreeSlot();
+      if (!freeSlot) {
+        conn.send({ type: "JOIN_REJECT", reason: "房間已滿（上限 4 人）" });
         return;
       }
-      hostConn.send(payload);
+
+      const requestedName = sanitizeNick(msg.name) || SLOT_META[freeSlot].label;
+      const assignedColor = getFirstAvailableColor("", [DEFAULT_SLOT_COLORS[freeSlot]]) || DEFAULT_SLOT_COLORS[freeSlot];
+
+      state.participants[freeSlot] = {
+        slot: freeSlot,
+        name: requestedName,
+        peerId: conn.peer,
+        isHost: false,
+        colorKey: assignedColor
+      };
+
+      normalizeUniqueColors(freeSlot);
+      guestConnections.set(conn.peer, { conn, slot: freeSlot });
+
+      conn.send({
+        type: "JOIN_ACCEPT",
+        slot: freeSlot,
+        roomId,
+        hostPeerId: myPeerId
+      });
+
+      broadcastState();
+      showToast(`${requestedName} 已加入 ${SLOT_META[freeSlot].label}`);
+      return;
     }
 
-    function renameSlot(slot, name) {
-      if (!roomId || !state.participants[slot]) return;
-      if (!canEditSlot(slot)) return;
+    const senderSlot = guestConnections.get(conn.peer)?.slot || findSlotByPeerId(conn.peer);
+    if (!senderSlot) return;
 
-      const next = sanitizeNick(name) || SLOT_META[slot].label;
-      if (isHost) {
-        state.participants[slot].name = next;
+    if (msg.type === "RENAME_ME") {
+      const next = sanitizeNick(msg.name) || SLOT_META[senderSlot].label;
+      state.participants[senderSlot].name = next;
+      broadcastState();
+      return;
+    }
+
+    if (msg.type === "SET_COLOR") {
+      if (COLOR_OPTIONS[msg.colorKey]) {
+        state.participants[senderSlot].colorKey = msg.colorKey;
+        normalizeUniqueColors(senderSlot);
         broadcastState();
-      } else if (slot === mySlot) {
-        sendToHost({ type: "RENAME_ME", name: next });
       }
-      if (slot === mySlot) {
-        dom.nicknameInput.value = next;
-        saveLocalPrefs();
-      }
+      return;
     }
 
-    function changeSlotColor(slot, colorKey) {
-      if (!roomId || !state.participants[slot]) return;
-      if (!canEditSlot(slot)) return;
-      if (!COLOR_OPTIONS[colorKey]) return;
+    if (msg.type === "SET_ANSWER") {
+      const floor = Number(msg.floor);
+      const value = String(msg.value || "");
+      if (!FLOORS.includes(floor)) return;
+      if (value && !["1", "2", "3", "4"].includes(value)) return;
 
-      if (isHost) {
-        state.participants[slot].colorKey = colorKey;
-        broadcastState();
-      } else if (slot === mySlot) {
-        sendToHost({ type: "SET_COLOR", colorKey });
-      }
-    }
-
-    function updateAnswer(slot, floor, value) {
-      if (!roomId || !mySlot || slot !== mySlot) return;
       if (value) {
-        const occupiedBy = getSelectedSlotByValue(floor, value, slot);
+        const occupiedBy = getSelectedSlotByValue(floor, value, senderSlot);
         if (occupiedBy) {
-          showToast(`${getSlotName(occupiedBy)} 已選 ${value}`);
+          conn.send({ type: "ACTION_REJECT", reason: `${getSlotName(occupiedBy)} 已選 ${value}` });
+          conn.send({ type: "STATE_SYNC", state });
           return;
         }
       }
-      if (isHost) {
-        setAnswerLocal(floor, slot, value);
-        broadcastState();
-      } else {
-        sendToHost({ type: "SET_ANSWER", floor, value });
-      }
+
+      setAnswerLocal(floor, senderSlot, value);
+      broadcastState();
+      return;
     }
 
-    function clearBoard() {
-      if (!roomId) return;
-      if (isHost) {
-        for (const slot of SLOT_KEYS) emptyAnswersForSlot(slot);
-        broadcastState();
-      } else {
-        sendToHost({ type: "CLEAR_BOARD" });
+    if (msg.type === "CLEAR_BOARD") {
+      for (const slot of SLOT_KEYS) {
+        emptyAnswersForSlot(slot);
       }
+      broadcastState();
+      return;
     }
 
-    function kickSlot(slot) {
-      if (!isHost || !state.participants[slot] || slot === "p1") return;
-      const targetPeerId = state.participants[slot].peerId;
-      const targetConn = guestConnections.get(targetPeerId)?.conn;
-      if (targetConn && targetConn.open) {
-        targetConn.send({ type: "KICK", slot });
-      }
-      emptyAnswersForSlot(slot);
-      state.participants[slot] = null;
-      guestConnections.delete(targetPeerId);
-      try { targetConn && targetConn.close(); } catch (_) {}
+    if (msg.type === "LEAVE_ROOM") {
+      emptyAnswersForSlot(senderSlot);
+      state.participants[senderSlot] = null;
+      guestConnections.delete(conn.peer);
+      try { conn.close(); } catch (_) {}
       broadcastState();
     }
+  }
 
-    async function handleCopyLink() {
-      if (!roomId) {
-        showToast("請先建立或加入房間");
-        return;
-      }
-      const ok = await copyText(getInviteLink());
-      showToast(ok ? "已複製邀請連結" : "複製失敗");
-    }
+  function setupGuestConnection(conn) {
+    hostConn = conn;
 
-    async function handleCopyRoom() {
-      if (!roomId) {
-        showToast("請先建立或加入房間");
-        return;
-      }
-      const ok = await copyText(roomId);
-      showToast(ok ? "已複製房號" : "複製失敗");
-    }
-
-    function validateNick() {
-      const nick = sanitizeNick(dom.nicknameInput.value);
-      if (!nick) {
-        showToast("請先輸入暱稱");
-        dom.nicknameInput.focus();
-        return "";
-      }
-      dom.nicknameInput.value = nick;
-      saveLocalPrefs();
-      return nick;
-    }
-
-    async function startHost() {
-      if (roomId) {
-        showToast("目前已在房間中");
-        return;
-      }
-      const nick = validateNick();
-      if (!nick) return;
-
-      const nextRoom = sanitizeRoom(dom.roomInput.value) || generateRoomCode();
-      dom.createRoomBtn.disabled = true;
-      dom.joinRoomBtn.disabled = true;
-      dom.statusSync.textContent = "建立中";
-      dom.roomInput.value = nextRoom;
-
-      destroyPeer();
-      const lifecycleId = peerLifecycleId;
-      state = createEmptyState();
-      isHost = true;
-      hostReady = false;
-      roomId = nextRoom;
-      mySlot = "p1";
-      loadLocalXMarks();
-
-      try {
-        peer = await createPeer(nextRoom);
-      } catch (err) {
-        console.error(err);
-        destroyPeer();
-        dom.roomInput.value = nextRoom;
-        showToast("PeerJS 載入失敗，請稍後重試");
-        refreshAll();
-        return;
-      }
-      if (lifecycleId !== peerLifecycleId) return;
-
-      setupCommonPeerEvents(peer);
-
-      peer.on("open", (id) => {
-        if (lifecycleId !== peerLifecycleId) return;
-        myPeerId = id;
-        roomId = id;
-        dom.roomInput.value = id;
-        loadLocalXMarks();
-        saveLocalPrefs();
-        hostPeerId = id;
-        hostReady = true;
-        state.participants.p1 = {
-          slot: "p1",
-          name: nick,
-          peerId: id,
-          isHost: true,
-          colorKey: getFirstAvailableColor("", [DEFAULT_SLOT_COLORS.p1]) || DEFAULT_SLOT_COLORS.p1
-        };
-        normalizeUniqueColors("p1");
-        state.updatedAt = nowTs();
-        peer.on("connection", (conn) => setupHostConnection(conn));
-        window.location.hash = new URLSearchParams({ room: roomId }).toString();
-        refreshAll();
-        showToast(`房間已建立：${roomId}`);
+    conn.on("open", () => {
+      setStatusText(dom.statusSync, "已連上房主", "online");
+      conn.send({
+        type: "JOIN_REQUEST",
+        name: sanitizeNick(dom.nicknameInput.value) || "玩家"
       });
-    }
+    });
 
-    async function startJoin() {
-      if (roomId) {
-        showToast("目前已在房間中");
-        return;
+    conn.on("data", (msg) => {
+      handleGuestMessage(msg);
+    });
+
+    conn.on("close", () => {
+      if (roomId || pendingJoinRoom) {
+        showToast("房主已離線或房間已關閉");
       }
-      const nick = validateNick();
-      if (!nick) return;
-
-      const targetRoom = sanitizeRoom(dom.roomInput.value);
-      if (!targetRoom) {
-        showToast("請先輸入房號");
-        dom.roomInput.focus();
-        return;
-      }
-
-      dom.createRoomBtn.disabled = true;
-      dom.joinRoomBtn.disabled = true;
-      dom.statusSync.textContent = "連線中";
-      dom.roomInput.value = targetRoom;
-      saveLocalPrefs();
-
+      const keepRoom = roomId || pendingJoinRoom || dom.roomInput.value;
       destroyPeer();
-      const lifecycleId = peerLifecycleId;
-      state = createEmptyState();
-      isHost = false;
-      roomId = targetRoom;
-      hostPeerId = targetRoom;
+      if (keepRoom) dom.roomInput.value = keepRoom;
+      restoreFromHash();
+    });
+
+    conn.on("error", (err) => {
+      console.error(err);
+      showToast("連線到房主失敗");
+    });
+  }
+
+  function handleGuestMessage(msg) {
+    if (!msg || typeof msg !== "object") return;
+
+    if (msg.type === "JOIN_ACCEPT") {
+      clearJoinTimeout();
+      mySlot = msg.slot;
+      roomId = msg.roomId || pendingJoinRoom;
+      pendingJoinRoom = "";
+      hostPeerId = msg.hostPeerId;
       loadLocalXMarks();
-
-      try {
-        peer = await createPeer();
-      } catch (err) {
-        console.error(err);
-        destroyPeer();
-        dom.roomInput.value = targetRoom;
-        showToast("PeerJS 載入失敗，請稍後重試");
-        refreshAll();
-        return;
-      }
-      if (lifecycleId !== peerLifecycleId) return;
-
-      setupCommonPeerEvents(peer);
-
-      peer.on("open", (id) => {
-        if (lifecycleId !== peerLifecycleId) return;
-        myPeerId = id;
-        const conn = peer.connect(targetRoom, { reliable: true, metadata: { name: nick } });
-        setupGuestConnection(conn);
-        refreshAll();
-      });
-    }
-
-    function leaveRoom() {
-      if (!roomId) return;
-      if (!confirm("確定要離開房間嗎？")) return;
-
-      if (!isHost && hostConn && hostConn.open) {
-        try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
-      }
-
-      if (isHost) {
-        for (const { conn, slot } of guestConnections.values()) {
-          try { conn.send({ type: "KICK", slot }); } catch (_) {}
-        }
-      }
-
-      destroyPeer();
-      window.location.hash = "";
-      restoreLocalPrefs();
-      showToast("已離開房間");
-    }
-
-    function reconnectStateView() {
-      if (roomId) {
-        loadLocalXMarks();
-      }
+      window.location.hash = new URLSearchParams({ room: roomId }).toString();
+      saveLocalPrefs();
       refreshAll();
-      showToast("已重新整理畫面狀態");
+      showToast(`已加入房間：${roomId}`);
+      return;
     }
 
-    function restoreFromHash() {
-      const hash = window.location.hash.replace(/^#/, "");
-      if (!hash) return;
-      const params = new URLSearchParams(hash);
-      const room = sanitizeRoom(params.get("room") || hash);
-      if (room) {
-        dom.roomInput.value = room;
-      }
+    if (msg.type === "JOIN_REJECT") {
+      clearJoinTimeout();
+      const keepRoom = pendingJoinRoom || dom.roomInput.value;
+      showToast(msg.reason || "加入失敗");
+      destroyPeer();
+      if (keepRoom) dom.roomInput.value = keepRoom;
+      restoreFromHash();
+      return;
     }
 
-    function attachGlobalKickActions() {
-      dom.presenceList.addEventListener("click", (event) => {
-        const target = event.target.closest("[data-kick-slot]");
-        if (!target) return;
-        const slot = target.dataset.kickSlot;
-        if (slot && confirm(`確定要移除 ${getSlotName(slot)} 嗎？`)) {
-          kickSlot(slot);
-        }
-      });
+    if (msg.type === "ACTION_REJECT") {
+      showToast(msg.reason || "此數字已被其他人選走");
+      return;
     }
 
-    dom.createRoomBtn.addEventListener("click", startHost);
-    dom.joinRoomBtn.addEventListener("click", startJoin);
-    dom.copyLinkBtn.addEventListener("click", handleCopyLink);
-    dom.copyRoomBtn.addEventListener("click", handleCopyRoom);
-    dom.disconnectBtn.addEventListener("click", leaveRoom);
-    dom.clearBoardBtn.addEventListener("click", clearBoard);
-    dom.reconnectBtn.addEventListener("click", reconnectStateView);
+    if (msg.type === "STATE_SYNC" && msg.state) {
+      state = msg.state;
+      normalizeUniqueColors();
+      const found = findSlotByPeerId(myPeerId);
+      if (found) mySlot = found;
+      refreshAll();
+    }
 
-    dom.nicknameInput.addEventListener("change", () => {
-      const next = sanitizeNick(dom.nicknameInput.value);
+    if (msg.type === "KICK" && msg.slot === mySlot) {
+      showToast("你已被房主移出房間");
+      const keepRoom = roomId || pendingJoinRoom || dom.roomInput.value;
+      destroyPeer();
+      if (keepRoom) dom.roomInput.value = keepRoom;
+      restoreFromHash();
+    }
+  }
+
+  function sendToHost(payload) {
+    if (isHost) return;
+    if (!hostConn || !hostConn.open) {
+      showToast("目前未連上房主");
+      return;
+    }
+    hostConn.send(payload);
+  }
+
+  function renameSlot(slot, name) {
+    if (!roomId || !state.participants[slot]) return;
+    if (!canEditSlot(slot)) return;
+
+    const next = sanitizeNick(name) || SLOT_META[slot].label;
+    if (isHost) {
+      state.participants[slot].name = next;
+      broadcastState();
+    } else if (slot === mySlot) {
+      sendToHost({ type: "RENAME_ME", name: next });
+    }
+
+    if (slot === mySlot) {
       dom.nicknameInput.value = next;
       saveLocalPrefs();
-      if (mySlot && next && state.participants[mySlot]) {
-        renameSlot(mySlot, next);
-      }
-    });
+    }
+  }
 
-    window.addEventListener("beforeunload", () => {
-      if (!isHost && hostConn && hostConn.open) {
-        try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
-      }
-      if (peer) {
-        try { peer.destroy(); } catch (_) {}
-      }
-    });
+  function changeSlotColor(slot, colorKey) {
+    if (!roomId || !state.participants[slot]) return;
+    if (!canEditSlot(slot)) return;
+    if (!COLOR_OPTIONS[colorKey]) return;
 
+    if (isHost) {
+      state.participants[slot].colorKey = colorKey;
+      normalizeUniqueColors(slot);
+      broadcastState();
+    } else if (slot === mySlot) {
+      sendToHost({ type: "SET_COLOR", colorKey });
+    }
+  }
+
+  function updateAnswer(slot, floor, value) {
+    if (!roomId || !mySlot || slot !== mySlot) return;
+
+    if (value) {
+      const occupiedBy = getSelectedSlotByValue(floor, value, slot);
+      if (occupiedBy) {
+        showToast(`${getSlotName(occupiedBy)} 已選 ${value}`);
+        return;
+      }
+    }
+
+    if (isHost) {
+      setAnswerLocal(floor, slot, value);
+      broadcastState();
+    } else {
+      sendToHost({ type: "SET_ANSWER", floor, value });
+    }
+  }
+
+  function clearBoard() {
+    if (!roomId) return;
+    if (isHost) {
+      for (const slot of SLOT_KEYS) emptyAnswersForSlot(slot);
+      broadcastState();
+    } else {
+      sendToHost({ type: "CLEAR_BOARD" });
+    }
+  }
+
+  function kickSlot(slot) {
+    if (!isHost || !state.participants[slot] || slot === "p1") return;
+    const targetPeerId = state.participants[slot].peerId;
+    const targetConn = guestConnections.get(targetPeerId)?.conn;
+    if (targetConn && targetConn.open) {
+      targetConn.send({ type: "KICK", slot });
+    }
+    emptyAnswersForSlot(slot);
+    state.participants[slot] = null;
+    guestConnections.delete(targetPeerId);
+    try { targetConn && targetConn.close(); } catch (_) {}
+    broadcastState();
+  }
+
+  async function handleCopyLink() {
+    if (!roomId) {
+      showToast("請先建立或加入房間");
+      return;
+    }
+    const ok = await copyText(getInviteLink());
+    showToast(ok ? "已複製邀請連結" : "複製失敗");
+  }
+
+  async function handleCopyRoom() {
+    const currentRoom = getCurrentRoomDisplay();
+    if (!currentRoom) {
+      showToast("請先建立或加入房間");
+      return;
+    }
+    const ok = await copyText(currentRoom);
+    showToast(ok ? "已複製房號" : "複製失敗");
+  }
+
+  function validateNick() {
+    const nick = sanitizeNick(dom.nicknameInput.value);
+    if (!nick) {
+      showToast("請先輸入暱稱");
+      dom.nicknameInput.focus();
+      return "";
+    }
+    dom.nicknameInput.value = nick;
+    saveLocalPrefs();
+    return nick;
+  }
+
+  async function startHost() {
+    if (roomId || pendingJoinRoom) {
+      showToast("目前已在房間中");
+      return;
+    }
+
+    const nick = validateNick();
+    if (!nick) return;
+
+    const nextRoom = sanitizeRoom(dom.roomInput.value) || generateRoomCode();
+    dom.createRoomBtn.disabled = true;
+    dom.joinRoomBtn.disabled = true;
+    dom.statusSync.textContent = "建立中";
+    dom.roomInput.value = nextRoom;
+
+    destroyPeer();
+
+    const lifecycleId = peerLifecycleId;
+    state = createEmptyState();
+    isHost = true;
+    hostReady = false;
+    roomId = nextRoom;
+    pendingJoinRoom = "";
+    mySlot = "p1";
+    loadLocalXMarks();
+
+    try {
+      peer = await createPeer(nextRoom);
+    } catch (err) {
+      console.error(err);
+      destroyPeer();
+      dom.roomInput.value = nextRoom;
+      showToast("PeerJS 載入失敗，請稍後重試");
+      refreshAll();
+      return;
+    }
+
+    if (lifecycleId !== peerLifecycleId) return;
+
+    setupCommonPeerEvents(peer);
+    peer.on("connection", (conn) => setupHostConnection(conn));
+
+    peer.on("open", (id) => {
+      if (lifecycleId !== peerLifecycleId) return;
+
+      myPeerId = id;
+      roomId = id;
+      dom.roomInput.value = id;
+      loadLocalXMarks();
+      saveLocalPrefs();
+      hostPeerId = id;
+      hostReady = true;
+
+      state.participants.p1 = {
+        slot: "p1",
+        name: nick,
+        peerId: id,
+        isHost: true,
+        colorKey: getFirstAvailableColor("", [DEFAULT_SLOT_COLORS.p1]) || DEFAULT_SLOT_COLORS.p1
+      };
+
+      normalizeUniqueColors("p1");
+      state.updatedAt = nowTs();
+      window.location.hash = new URLSearchParams({ room: roomId }).toString();
+      refreshAll();
+      showToast(`房間已建立：${roomId}`);
+    });
+  }
+
+  async function startJoin() {
+    if (roomId || pendingJoinRoom) {
+      showToast("目前已在房間中");
+      return;
+    }
+
+    const nick = validateNick();
+    if (!nick) return;
+
+    const targetRoom = sanitizeRoom(dom.roomInput.value);
+    if (!targetRoom) {
+      showToast("請先輸入房號");
+      dom.roomInput.focus();
+      return;
+    }
+
+    dom.createRoomBtn.disabled = true;
+    dom.joinRoomBtn.disabled = true;
+    dom.statusSync.textContent = "連線中";
+    dom.roomInput.value = targetRoom;
+    saveLocalPrefs();
+
+    destroyPeer();
+
+    const lifecycleId = peerLifecycleId;
+    state = createEmptyState();
+    isHost = false;
+    roomId = "";
+    pendingJoinRoom = targetRoom;
+    hostPeerId = targetRoom;
+    loadLocalXMarks();
+    refreshAll();
+
+    try {
+      peer = await createPeer();
+    } catch (err) {
+      console.error(err);
+      destroyPeer();
+      dom.roomInput.value = targetRoom;
+      showToast("PeerJS 載入失敗，請稍後重試");
+      refreshAll();
+      return;
+    }
+
+    if (lifecycleId !== peerLifecycleId) return;
+
+    setupCommonPeerEvents(peer);
+
+    peer.on("open", (id) => {
+      if (lifecycleId !== peerLifecycleId) return;
+
+      myPeerId = id;
+
+      const conn = peer.connect(targetRoom, {
+        reliable: true,
+        serialization: "json",
+        metadata: { name: nick }
+      });
+
+      setupGuestConnection(conn);
+      refreshAll();
+
+      clearJoinTimeout();
+      joinTimeoutTimer = setTimeout(() => {
+        if (!roomId && pendingJoinRoom) {
+          const keepRoom = pendingJoinRoom;
+          showToast("加入房間逾時，請確認房主仍在線");
+          destroyPeer();
+          dom.roomInput.value = keepRoom;
+          refreshAll();
+        }
+      }, 12000);
+    });
+  }
+
+  function leaveRoom() {
+    if (!roomId && !pendingJoinRoom) return;
+    if (!confirm("確定要離開房間嗎？")) return;
+
+    if (!isHost && hostConn && hostConn.open && mySlot) {
+      try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
+    }
+
+    if (isHost) {
+      for (const { conn, slot } of guestConnections.values()) {
+        try { conn.send({ type: "KICK", slot }); } catch (_) {}
+      }
+    }
+
+    destroyPeer();
+    window.location.hash = "";
     restoreLocalPrefs();
-    restoreFromHash();
-    attachGlobalKickActions();
-    requestAnimationFrame(() => refreshAll());
-  </script>
+    showToast("已離開房間");
+  }
+
+  function reconnectStateView() {
+    if (roomId || pendingJoinRoom) {
+      loadLocalXMarks();
+    }
+    refreshAll();
+    showToast("已重新整理畫面狀態");
+  }
+
+  function restoreFromHash() {
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+    const params = new URLSearchParams(hash);
+    const room = sanitizeRoom(params.get("room") || hash);
+    if (room) {
+      dom.roomInput.value = room;
+    }
+  }
+
+  function attachGlobalKickActions() {
+    dom.presenceList.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-kick-slot]");
+      if (!target) return;
+      const slot = target.dataset.kickSlot;
+      if (slot && confirm(`確定要移除 ${getSlotName(slot)} 嗎？`)) {
+        kickSlot(slot);
+      }
+    });
+  }
+
+  dom.createRoomBtn.addEventListener("click", startHost);
+  dom.joinRoomBtn.addEventListener("click", startJoin);
+  dom.copyLinkBtn.addEventListener("click", handleCopyLink);
+  dom.copyRoomBtn.addEventListener("click", handleCopyRoom);
+  dom.disconnectBtn.addEventListener("click", leaveRoom);
+  dom.clearBoardBtn.addEventListener("click", clearBoard);
+  dom.reconnectBtn.addEventListener("click", reconnectStateView);
+
+  dom.nicknameInput.addEventListener("change", () => {
+    const next = sanitizeNick(dom.nicknameInput.value);
+    dom.nicknameInput.value = next;
+    saveLocalPrefs();
+    if (mySlot && next && state.participants[mySlot]) {
+      renameSlot(mySlot, next);
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    if (!isHost && hostConn && hostConn.open && mySlot) {
+      try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
+    }
+    if (peer) {
+      try { peer.destroy(); } catch (_) {}
+    }
+  });
+
+  restoreLocalPrefs();
+  restoreFromHash();
+  attachGlobalKickActions();
+  requestAnimationFrame(() => refreshAll());
+</script>
 </body>
 </html>
