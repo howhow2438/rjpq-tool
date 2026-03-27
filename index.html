@@ -7,7 +7,11 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Artale 羅茱平台助手</title>
+
   <style>
+    /* =========================================================
+       基本色票 / 主題變數
+       ========================================================= */
     :root {
       --bg: #0b1220;
       --panel: #111a2b;
@@ -22,21 +26,10 @@
       --danger: #ef4444;
       --btn: #1c2a40;
       --shadow: 0 14px 30px rgba(0,0,0,.24);
-      --p1: #4f8cff;
-      --p1-2: #2f6ee8;
-      --p1-rgb: 79,140,255;
-      --p2: #22c55e;
-      --p2-2: #16a34a;
-      --p2-rgb: 34,197,94;
-      --p3: #f59e0b;
-      --p3-2: #ea8500;
-      --p3-rgb: 245,158,11;
-      --p4: #ef5da8;
-      --p4-2: #db2777;
-      --p4-rgb: 239,93,168;
     }
 
     * { box-sizing: border-box; }
+
     html, body {
       margin: 0;
       padding: 0;
@@ -47,6 +40,7 @@
     }
 
     body { padding: 10px; }
+
     .app {
       max-width: 860px;
       margin: 0 auto;
@@ -265,41 +259,13 @@
     }
 
     .player-box.colorized,
-    .player-head.colorized,
-    .pick-cell.has-value {
+    .player-head.colorized {
       border-color: rgba(var(--slot-rgb, 139,92,246), .34);
       background: rgba(var(--slot-rgb, 139,92,246), .12);
     }
 
     .player-box.colorized input {
       border-color: rgba(var(--slot-rgb, 139,92,246), .28);
-    }
-
-    .color-picker-row {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
-
-    .color-dot {
-      width: 28px;
-      height: 28px;
-      border-radius: 10px;
-      border: 2px solid transparent;
-      background: var(--swatch, #8b5cf6);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
-      cursor: pointer;
-    }
-
-    .color-dot.selected {
-      border-color: #ffffff;
-      box-shadow: 0 0 0 2px rgba(255,255,255,.15);
-    }
-
-    .color-dot:disabled {
-      opacity: .38;
-      cursor: not-allowed;
     }
 
     .help-line {
@@ -566,16 +532,19 @@
         <h2 class="section-title" style="margin:0;">房間與玩家</h2>
         <div class="hint">先設定暱稱，再建立或加入房間</div>
       </div>
+
       <div class="stack">
         <div class="row-3">
           <div>
             <label class="label" for="nicknameInput">我的暱稱</label>
             <input id="nicknameInput" type="text" maxlength="20" placeholder="例如：隊長 / 主教" />
           </div>
+
           <div>
             <label class="label" for="roomInput">房號</label>
             <input id="roomInput" type="text" maxlength="40" placeholder="例如：RJ-8421" />
           </div>
+
           <div style="display:flex;align-items:flex-end;">
             <button class="btn secondary" id="copyRoomBtn" style="width:100%;">複製房號</button>
           </div>
@@ -601,7 +570,7 @@
         </div>
 
         <div class="help-line">
-          可自行修改名稱與顏色；同房成員會看到最新設定。
+          玩家加入後會自動分配唯一顏色；不可手動變更。
         </div>
       </div>
     </section>
@@ -609,7 +578,7 @@
     <section class="card">
       <div class="compact-head">
         <h2 class="section-title" style="margin:0;">玩家欄位</h2>
-        <div class="hint">可改名稱與顏色｜平台選位改為每層共用</div>
+        <div class="hint">名稱可改｜顏色自動分配｜平台選位每層共用</div>
       </div>
       <div class="players-grid" id="playerInputs"></div>
     </section>
@@ -617,7 +586,7 @@
     <section class="card board-card">
       <div class="board-toolbar">
         <h2 class="section-title" style="margin:0;">平台記錄</h2>
-        <div class="hint">每層共用一組按鈕｜同一數字不可重複被不同人選</div>
+        <div class="hint">短按選數字｜長按 / 右鍵可切換 X 註記</div>
       </div>
       <div class="board-scroll">
         <div class="matrix" id="boardBody"></div>
@@ -637,14 +606,29 @@
   <div class="toast" id="toast"></div>
 
   <script>
+    /* =========================================================
+       1. 常數設定
+       ---------------------------------------------------------
+       - SLOT_KEYS：固定 4 個玩家欄位
+       - FLOORS：1~10 樓
+       - DISPLAY_FLOORS：畫面顯示由 10F 往下
+       - LONG_PRESS_MS：長按時間，用來切換 X 註記
+       - RECONNECT_GRACE_MS：斷線保留時間（目前 2 分鐘）
+       ========================================================= */
     const SLOT_KEYS = ["p1", "p2", "p3", "p4"];
     const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
     const DISPLAY_FLOORS = [...FLOORS].reverse();
+
     const LONG_PRESS_MS = 550;
-    const RECONNECT_GRACE_MS = 30000;
+    const RECONNECT_GRACE_MS = 120000;     // 2 分鐘
     const AUTO_REJOIN_DELAY_MS = 1200;
     const RESUME_PROBE_TIMEOUT_MS = 4000;
 
+    /* =========================================================
+       2. 顏色設定
+       ---------------------------------------------------------
+       顏色現在只做「系統自動分配」，不提供手動更改。
+       ========================================================= */
     const COLOR_OPTIONS = {
       purple: { label: "紫色", color: "#8b5cf6", color2: "#7c3aed", rgb: "139,92,246" },
       green:  { label: "綠色", color: "#22c55e", color2: "#16a34a", rgb: "34,197,94" },
@@ -652,6 +636,11 @@
       red:    { label: "紅色", color: "#ef4444", color2: "#dc2626", rgb: "239,68,68" }
     };
 
+    /* =========================================================
+       依照預設欄位順序建議顏色
+       p1 紫 / p2 綠 / p3 黃 / p4 紅
+       若某色已被占用，會改找下一個可用色
+       ========================================================= */
     const DEFAULT_SLOT_COLORS = {
       p1: "purple",
       p2: "green",
@@ -666,6 +655,9 @@
       p4: { label: "玩家4", className: "player-p4" }
     };
 
+    /* =========================================================
+       3. DOM 快取
+       ========================================================= */
     const $ = (id) => document.getElementById(id);
 
     const dom = {
@@ -690,6 +682,9 @@
       toast: $("toast")
     };
 
+    /* =========================================================
+       4. Peer / 連線狀態變數
+       ========================================================= */
     let peer = null;
     let isHost = false;
     let roomId = "";
@@ -708,14 +703,30 @@
 
     const guestConnections = new Map();
     const graceDisconnectTimers = new Map();
+
+    /* =========================================================
+       clientId：
+       用來辨識「同一台裝置 / 同一個瀏覽器」
+       這樣掉線重連時，host 才能把同一個人放回原本 slot
+       ========================================================= */
     const clientId = getOrCreateClientId();
 
+    /* =========================================================
+       5. 本地狀態
+       - participants：玩家資料
+       - answers：每層每人所選數字
+       - localXMarks：僅本地端的 X 註記，不同步給其他人
+       ========================================================= */
     let state = createEmptyState();
     let localXMarks = {};
 
+    /* =========================================================
+       6. 基本工具
+       ========================================================= */
     function getOrCreateClientId() {
       const KEY = "rjpq_client_id_v1";
       let id = localStorage.getItem(KEY);
+
       if (!id) {
         id = (window.crypto && crypto.randomUUID)
           ? crypto.randomUUID()
@@ -728,6 +739,7 @@
     function createEmptyState() {
       const participants = {};
       SLOT_KEYS.forEach((slot) => participants[slot] = null);
+
       return {
         participants,
         answers: {},
@@ -763,6 +775,16 @@
       return result;
     }
 
+    function escapeHtml(str) {
+      return String(str || "").replace(/[&<>"']/g, (m) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      })[m]);
+    }
+
     function showToast(message) {
       dom.toast.textContent = message;
       dom.toast.classList.add("show");
@@ -772,12 +794,14 @@
 
     async function copyText(text) {
       if (!text) return false;
+
       try {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(text);
           return true;
         }
       } catch (_) {}
+
       try {
         const ta = document.createElement("textarea");
         ta.value = text;
@@ -793,15 +817,13 @@
       }
     }
 
-    function getInviteLink() {
-      if (!roomId) return "";
-      const url = new URL(window.location.href);
-      const params = new URLSearchParams();
-      params.set("room", roomId);
-      url.hash = params.toString();
-      return url.toString();
+    function colorName(colorKey) {
+      return COLOR_OPTIONS[colorKey]?.label || "紫色";
     }
 
+    /* =========================================================
+       7. 本地儲存：暱稱 / X 註記
+       ========================================================= */
     function saveLocalPrefs() {
       localStorage.setItem("rjpq_peerjs_nick", dom.nicknameInput.value.trim());
     }
@@ -826,6 +848,7 @@
         localXMarks = {};
         return;
       }
+
       try {
         const parsed = JSON.parse(localStorage.getItem(storageKey) || "{}");
         localXMarks = parsed && typeof parsed === "object" ? parsed : {};
@@ -837,6 +860,7 @@
     function saveLocalXMarks() {
       const storageKey = getLocalXStorageKey();
       if (!storageKey) return;
+
       try {
         localStorage.setItem(storageKey, JSON.stringify(localXMarks));
       } catch (_) {}
@@ -848,15 +872,186 @@
 
     function toggleLocalXMark(floor, value) {
       const key = `${floor}:${value}`;
-      if (localXMarks[key]) {
-        delete localXMarks[key];
-      } else {
-        localXMarks[key] = 1;
-      }
+      if (localXMarks[key]) delete localXMarks[key];
+      else localXMarks[key] = 1;
+
       saveLocalXMarks();
       renderBoard();
     }
 
+    /* =========================================================
+       8. 邀請連結 / 房號複製
+       ========================================================= */
+    function getInviteLink() {
+      if (!roomId) return "";
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams();
+      params.set("room", roomId);
+      url.hash = params.toString();
+      return url.toString();
+    }
+
+    async function handleCopyLink() {
+      if (!roomId) {
+        showToast("請先建立或加入房間");
+        return;
+      }
+
+      const ok = await copyText(getInviteLink());
+      showToast(ok ? "已複製邀請連結" : "複製失敗");
+    }
+
+    async function handleCopyRoom() {
+      const currentRoom = getCurrentRoomDisplay();
+      if (!currentRoom) {
+        showToast("請先建立或加入房間");
+        return;
+      }
+
+      const ok = await copyText(currentRoom);
+      showToast(ok ? "已複製房號" : "複製失敗");
+    }
+
+    /* =========================================================
+       9. 顏色分配邏輯
+       ---------------------------------------------------------
+       - 只保留「自動分配」功能
+       - 玩家無法自行挑選
+       ========================================================= */
+    function getUsedColorKeys(exceptSlot = "") {
+      const used = new Set();
+      SLOT_KEYS.forEach((slot) => {
+        if (slot === exceptSlot) return;
+        const colorKey = state.participants[slot]?.colorKey;
+        if (COLOR_OPTIONS[colorKey]) used.add(colorKey);
+      });
+      return used;
+    }
+
+    function uniqueOrder(items) {
+      return [...new Set(items.filter(Boolean))];
+    }
+
+    function getFirstAvailableColor(exceptSlot = "", preferredOrder = []) {
+      const used = getUsedColorKeys(exceptSlot);
+      const order = uniqueOrder([...preferredOrder, ...Object.keys(COLOR_OPTIONS)]);
+      return order.find((key) => COLOR_OPTIONS[key] && !used.has(key)) || null;
+    }
+
+    function normalizeUniqueColors(preferredSlot = "") {
+      const taken = new Set();
+
+      if (preferredSlot && state.participants[preferredSlot]) {
+        let keepColor = state.participants[preferredSlot].colorKey;
+        if (!COLOR_OPTIONS[keepColor] || taken.has(keepColor)) {
+          keepColor = getFirstAvailableColor(preferredSlot, [DEFAULT_SLOT_COLORS[preferredSlot]]);
+          state.participants[preferredSlot].colorKey =
+            keepColor || DEFAULT_SLOT_COLORS[preferredSlot] || "purple";
+        }
+        taken.add(state.participants[preferredSlot].colorKey);
+      }
+
+      SLOT_KEYS.forEach((slot) => {
+        if (slot === preferredSlot) return;
+        const participant = state.participants[slot];
+        if (!participant) return;
+
+        let nextColor = participant.colorKey;
+        if (!COLOR_OPTIONS[nextColor] || taken.has(nextColor)) {
+          const preferred = uniqueOrder([DEFAULT_SLOT_COLORS[slot], nextColor]);
+          nextColor =
+            uniqueOrder([...preferred, ...Object.keys(COLOR_OPTIONS)])
+              .find((key) => COLOR_OPTIONS[key] && !taken.has(key))
+            || DEFAULT_SLOT_COLORS[slot]
+            || "purple";
+
+          participant.colorKey = nextColor;
+        }
+
+        taken.add(nextColor);
+      });
+    }
+
+    function getColorKey(slot) {
+      return state.participants[slot]?.colorKey || DEFAULT_SLOT_COLORS[slot] || "purple";
+    }
+
+    function getTheme(slot) {
+      return COLOR_OPTIONS[getColorKey(slot)] || COLOR_OPTIONS.purple;
+    }
+
+    function themeStyle(slot) {
+      const theme = getTheme(slot);
+      return `--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};`;
+    }
+
+    /* =========================================================
+       10. 玩家 / 答案資料工具
+       ========================================================= */
+    function getSlotName(slot) {
+      return state.participants[slot]?.name || SLOT_META[slot].label;
+    }
+
+    function getAnswer(floor, slot) {
+      return state.answers[`${floor}:${slot}`] || "";
+    }
+
+    function getSelectedSlotByValue(floor, value, excludeSlot = "") {
+      const target = String(value || "");
+      if (!target) return "";
+      return SLOT_KEYS.find((slot) => slot !== excludeSlot && getAnswer(floor, slot) === target) || "";
+    }
+
+    function getFloorSelections(floor) {
+      const result = {};
+      SLOT_KEYS.forEach((slot) => {
+        const value = getAnswer(floor, slot);
+        if (value) result[value] = slot;
+      });
+      return result;
+    }
+
+    function setAnswerLocal(floor, slot, value) {
+      const key = `${floor}:${slot}`;
+      if (!value) delete state.answers[key];
+      else state.answers[key] = String(value);
+      state.updatedAt = nowTs();
+    }
+
+    function emptyAnswersForSlot(slot) {
+      if (!slot) return;
+      for (const floor of FLOORS) {
+        delete state.answers[`${floor}:${slot}`];
+      }
+    }
+
+    function buildPlayerReport(slot) {
+      const name = getSlotName(slot);
+      const digits = FLOORS.map((floor) => String(getAnswer(floor, slot) || 0));
+      return `${name}: ${digits.slice(0, 5).join("")}/${digits.slice(5).join("")}`;
+    }
+
+    function getConnectedParticipants() {
+      return SLOT_KEYS.map((slot) => state.participants[slot]).filter(Boolean);
+    }
+
+    function getFreeSlot() {
+      return SLOT_KEYS.find((slot) => !state.participants[slot]) || "";
+    }
+
+    function findSlotByPeerId(peerId) {
+      return SLOT_KEYS.find((slot) => state.participants[slot]?.peerId === peerId) || "";
+    }
+
+    function canEditSlot(slot) {
+      if (!roomId) return false;
+      if (isHost) return true;
+      return mySlot === slot;
+    }
+
+    /* =========================================================
+       11. 斷線保留 / 重連工具
+       ========================================================= */
     function clearJoinTimeout() {
       if (joinTimeoutTimer) {
         clearTimeout(joinTimeoutTimer);
@@ -882,6 +1077,7 @@
       participant.peerId = peerId || participant.peerId;
       participant.reconnectDeadline = Date.now() + RECONNECT_GRACE_MS;
       state.updatedAt = Date.now();
+
       refreshAll();
 
       const timer = setTimeout(() => {
@@ -964,122 +1160,9 @@
       });
     }
 
-    function emptyAnswersForSlot(slot) {
-      if (!slot) return;
-      for (const floor of FLOORS) {
-        delete state.answers[`${floor}:${slot}`];
-      }
-    }
-
-    function getConnectedParticipants() {
-      return SLOT_KEYS.map((slot) => state.participants[slot]).filter(Boolean);
-    }
-
-    function uniqueOrder(items) {
-      return [...new Set(items.filter(Boolean))];
-    }
-
-    function getUsedColorKeys(exceptSlot = "") {
-      const used = new Set();
-      SLOT_KEYS.forEach((slot) => {
-        if (slot === exceptSlot) return;
-        const colorKey = state.participants[slot]?.colorKey;
-        if (COLOR_OPTIONS[colorKey]) used.add(colorKey);
-      });
-      return used;
-    }
-
-    function getFirstAvailableColor(exceptSlot = "", preferredOrder = []) {
-      const used = getUsedColorKeys(exceptSlot);
-      const order = uniqueOrder([...preferredOrder, ...Object.keys(COLOR_OPTIONS)]);
-      return order.find((key) => COLOR_OPTIONS[key] && !used.has(key)) || null;
-    }
-
-    function normalizeUniqueColors(preferredSlot = "") {
-      const taken = new Set();
-
-      if (preferredSlot && state.participants[preferredSlot]) {
-        let keepColor = state.participants[preferredSlot].colorKey;
-        if (!COLOR_OPTIONS[keepColor] || taken.has(keepColor)) {
-          keepColor = getFirstAvailableColor(preferredSlot, [DEFAULT_SLOT_COLORS[preferredSlot]]);
-          state.participants[preferredSlot].colorKey = keepColor || DEFAULT_SLOT_COLORS[preferredSlot] || "purple";
-        }
-        taken.add(state.participants[preferredSlot].colorKey);
-      }
-
-      SLOT_KEYS.forEach((slot) => {
-        if (slot === preferredSlot) return;
-        const participant = state.participants[slot];
-        if (!participant) return;
-
-        let nextColor = participant.colorKey;
-        if (!COLOR_OPTIONS[nextColor] || taken.has(nextColor)) {
-          const preferred = uniqueOrder([DEFAULT_SLOT_COLORS[slot], nextColor]);
-          nextColor = uniqueOrder([...preferred, ...Object.keys(COLOR_OPTIONS)])
-            .find((key) => COLOR_OPTIONS[key] && !taken.has(key))
-            || DEFAULT_SLOT_COLORS[slot]
-            || "purple";
-          participant.colorKey = nextColor;
-        }
-        taken.add(nextColor);
-      });
-    }
-
-    function getColorKey(slot) {
-      return state.participants[slot]?.colorKey || DEFAULT_SLOT_COLORS[slot] || "purple";
-    }
-
-    function getTheme(slot) {
-      return COLOR_OPTIONS[getColorKey(slot)] || COLOR_OPTIONS.purple;
-    }
-
-    function themeStyle(slot) {
-      const theme = getTheme(slot);
-      return `--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};`;
-    }
-
-    function getSlotName(slot) {
-      return state.participants[slot]?.name || SLOT_META[slot].label;
-    }
-
-    function getAnswer(floor, slot) {
-      return state.answers[`${floor}:${slot}`] || "";
-    }
-
-    function getSelectedSlotByValue(floor, value, excludeSlot = "") {
-      const target = String(value || "");
-      if (!target) return "";
-      return SLOT_KEYS.find((slot) => slot !== excludeSlot && getAnswer(floor, slot) === target) || "";
-    }
-
-    function getFloorSelections(floor) {
-      const result = {};
-      SLOT_KEYS.forEach((slot) => {
-        const value = getAnswer(floor, slot);
-        if (value) result[value] = slot;
-      });
-      return result;
-    }
-
-    function setAnswerLocal(floor, slot, value) {
-      const key = `${floor}:${slot}`;
-      if (!value) delete state.answers[key];
-      else state.answers[key] = String(value);
-      state.updatedAt = nowTs();
-    }
-
-    function buildPlayerReport(slot) {
-      const name = getSlotName(slot);
-      const digits = FLOORS.map((floor) => String(getAnswer(floor, slot) || 0));
-      return `${name}: ${digits.slice(0, 5).join("")}/${digits.slice(5).join("")}`;
-    }
-
-    function canEditSlot(slot) {
-      if (!roomId) return false;
-      if (isHost) return true;
-      return mySlot === slot;
-    }
-
+    /* =========================================================
+       12. 狀態顯示工具
+       ========================================================= */
     function setStatusText(el, text, kind) {
       el.textContent = text;
       el.className = "";
@@ -1088,6 +1171,7 @@
 
     function renderStatus() {
       const displayRoom = getCurrentRoomDisplay();
+
       dom.statusRoom.textContent = displayRoom || "未加入";
       dom.statusRole.textContent = !displayRoom
         ? "未加入"
@@ -1127,18 +1211,24 @@
       dom.roomInput.readOnly = inOrJoiningRoom;
     }
 
+    /* =========================================================
+       13. 畫面渲染：在線名單
+       ========================================================= */
     function renderPresence() {
       const list = getConnectedParticipants();
+
       if (!list.length) {
         dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
         return;
       }
 
       dom.presenceList.innerHTML = "";
+
       list.forEach((participant) => {
         const slot = participant.slot;
         const wrapper = document.createElement("span");
-        wrapper.className = `presence-chip${participant.isHost ? " host" : ""}${participant.online === false ? " offline" : ""}`;
+        wrapper.className =
+          `presence-chip${participant.isHost ? " host" : ""}${participant.online === false ? " offline" : ""}`;
 
         const theme = getTheme(slot);
         wrapper.style.borderColor = `rgba(${theme.rgb}, .34)`;
@@ -1146,7 +1236,8 @@
         wrapper.style.color = theme.color;
 
         const offlineText = participant.online === false ? "｜暫離保留中" : "";
-        wrapper.textContent = `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}${offlineText}`;
+        wrapper.textContent =
+          `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}${offlineText}`;
 
         if (isHost && !participant.isHost) {
           const btn = document.createElement("button");
@@ -1161,6 +1252,13 @@
       });
     }
 
+    /* =========================================================
+       14. 畫面渲染：玩家欄位
+       ---------------------------------------------------------
+       重點：
+       - 顏色只顯示，不提供選擇 UI
+       - 名稱仍可由自己 / host 編輯
+       ========================================================= */
     function renderPlayers() {
       dom.playerInputs.innerHTML = "";
 
@@ -1190,35 +1288,27 @@
           }
         }
 
-        const usedColorsByOthers = getUsedColorKeys(slot);
-        const colorButtons = Object.entries(COLOR_OPTIONS).map(([key, option]) => {
-          const lockedByOther = usedColorsByOthers.has(key) && getColorKey(slot) !== key;
-          return `
-            <button
-              type="button"
-              class="color-dot ${getColorKey(slot) === key ? "selected" : ""}"
-              data-slot="${slot}"
-              data-color="${key}"
-              style="--swatch:${option.color}"
-              title="${lockedByOther ? option.label + '（已被使用）' : option.label}"
-              ${canEdit && !lockedByOther ? "" : "disabled"}
-            ></button>
-          `;
-        }).join("");
-
         box.innerHTML = `
           <div class="player-head colorized ${meta.className}" style="${themeStyle(slot)}">
             <div class="player-title">${meta.label}</div>
             <div class="player-role ${roleClass}">${headRole}</div>
           </div>
+
           <label class="label" for="name-${slot}">顯示名稱</label>
-          <input id="name-${slot}" type="text" maxlength="20" value="${participant ? escapeHtml(participant.name) : ""}" placeholder="${meta.label}" ${canEdit ? "" : "readonly"} />
+          <input
+            id="name-${slot}"
+            type="text"
+            maxlength="20"
+            value="${participant ? escapeHtml(participant.name) : ""}"
+            placeholder="${meta.label}"
+            ${canEdit ? "" : "readonly"}
+          />
+
           <div class="help-line">
-            顏色：${colorName(getColorKey(slot))}
+            自動配色：${colorName(getColorKey(slot))}
             ${participant ? `｜ID ${String(participant.peerId || "").slice(0, 8)}` : ""}
             ${participant?.online === false ? "｜保留中" : ""}
           </div>
-          <div class="color-picker-row">${colorButtons}</div>
         `;
 
         dom.playerInputs.appendChild(box);
@@ -1229,36 +1319,42 @@
           input.value = next;
           renameSlot(slot, next);
         });
-
-        box.querySelectorAll(".color-dot").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            changeSlotColor(slot, btn.dataset.color);
-          });
-        });
       });
     }
 
+    /* =========================================================
+       15. 畫面渲染：複製按鈕
+       ========================================================= */
     function renderCopyActions() {
       dom.copyPlayerActions.innerHTML = "";
+
       SLOT_KEYS.forEach((slot) => {
         const btn = document.createElement("button");
-        btn.className = `btn secondary`;
+        btn.className = "btn secondary";
         btn.textContent = `複製 ${getSlotName(slot)}`;
         btn.disabled = !state.participants[slot];
+
         btn.addEventListener("click", async () => {
           const ok = await copyText(buildPlayerReport(slot));
           showToast(ok ? `已複製 ${getSlotName(slot)}` : "複製失敗");
         });
+
         dom.copyPlayerActions.appendChild(btn);
       });
     }
 
+    /* =========================================================
+       16. 平台按鈕：長按 / 右鍵 X 註記
+       ---------------------------------------------------------
+       - 手機：長按 550ms 切換 X
+       - 桌機：右鍵切換 X
+       - 短按：正常選號 / 取消自己選的號
+       ========================================================= */
     function attachLongPressHandlers(btn, floor, value) {
       let pressTimer = null;
 
       const startPress = (event) => {
         if (!value) return;
-
         if (event.type === "mousedown" && event.button !== 0) return;
 
         clearTimeout(pressTimer);
@@ -1267,7 +1363,9 @@
         pressTimer = setTimeout(() => {
           btn.dataset.longPressTriggered = "1";
           toggleLocalXMark(floor, value);
-          try { if (navigator.vibrate) navigator.vibrate(18); } catch (_) {}
+          try {
+            if (navigator.vibrate) navigator.vibrate(18);
+          } catch (_) {}
         }, LONG_PRESS_MS);
       };
 
@@ -1297,6 +1395,9 @@
       });
     }
 
+    /* =========================================================
+       17. 畫面渲染：平台板
+       ========================================================= */
     function renderBoard() {
       const rows = DISPLAY_FLOORS.map((floor) => {
         const selections = getFloorSelections(floor);
@@ -1307,6 +1408,7 @@
           const ownerSlot = selections[value] || "";
           const ownerName = ownerSlot ? getSlotName(ownerSlot) : "";
           const theme = ownerSlot ? getTheme(ownerSlot) : null;
+
           const classes = ["shared-pick-btn", ownerSlot ? "claimed" : "empty"];
           if (ownerSlot && ownerSlot === mySlot) classes.push("mine");
           if (ownerSlot && ownerSlot !== mySlot) classes.push("locked");
@@ -1352,6 +1454,7 @@
       dom.boardBody.querySelectorAll(".shared-pick-btn[data-floor][data-value]").forEach((btn) => {
         const floor = Number(btn.dataset.floor);
         const value = String(btn.dataset.value || "");
+
         attachLongPressHandlers(btn, floor, value);
 
         btn.addEventListener("click", (event) => {
@@ -1381,20 +1484,9 @@
       });
     }
 
-    function colorName(colorKey) {
-      return COLOR_OPTIONS[colorKey]?.label || "紫色";
-    }
-
-    function escapeHtml(str) {
-      return String(str || "").replace(/[&<>"']/g, (m) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      })[m]);
-    }
-
+    /* =========================================================
+       18. 統一刷新畫面
+       ========================================================= */
     function refreshAll() {
       renderStatus();
       renderPresence();
@@ -1403,8 +1495,12 @@
       renderCopyActions();
     }
 
+    /* =========================================================
+       19. Host 廣播同步狀態給所有 guest
+       ========================================================= */
     function broadcastState() {
       if (!isHost) return;
+
       state.updatedAt = nowTs();
 
       for (const { conn } of guestConnections.values()) {
@@ -1418,14 +1514,9 @@
       refreshAll();
     }
 
-    function findSlotByPeerId(peerId) {
-      return SLOT_KEYS.find((slot) => state.participants[slot]?.peerId === peerId) || "";
-    }
-
-    function getFreeSlot() {
-      return SLOT_KEYS.find((slot) => !state.participants[slot]) || "";
-    }
-
+    /* =========================================================
+       20. PeerJS 載入 / 建立
+       ========================================================= */
     let peerScriptPromise = null;
     let peerLifecycleId = 0;
 
@@ -1450,6 +1541,7 @@
 
     async function createPeer(peerId) {
       await ensurePeerJsLoaded();
+
       return new Peer(peerId || undefined, {
         host: "0.peerjs.com",
         port: 443,
@@ -1466,6 +1558,13 @@
       });
     }
 
+    /* =========================================================
+       21. 清理目前 Peer 與連線狀態
+       ---------------------------------------------------------
+       注意：
+       destroyPeer 會把目前房間狀態清空
+       所以在 startHost / startJoin 裡會再重新設定狀態
+       ========================================================= */
     function destroyPeer() {
       peerLifecycleId += 1;
 
@@ -1508,9 +1607,16 @@
       state = createEmptyState();
       allowAutoRejoin = false;
       manualLeaving = false;
+
       refreshAll();
     }
 
+    /* =========================================================
+       22. Peer 共用事件
+       ---------------------------------------------------------
+       - disconnected：嘗試 peer.reconnect()
+       - guest 若允許自動重連，會排程重新加入
+       ========================================================= */
     function setupCommonPeerEvents(localPeer) {
       localPeer.on("error", (err) => {
         console.error(err);
@@ -1543,7 +1649,9 @@
 
       localPeer.on("disconnected", () => {
         setStatusText(dom.statusSync, isHost ? "房主重新掛線中" : "重新連線中", "warn-text");
+
         try { localPeer.reconnect(); } catch (_) {}
+
         renderStatus();
 
         if (!isHost && allowAutoRejoin) {
@@ -1556,6 +1664,9 @@
       });
     }
 
+    /* =========================================================
+       23. Host 端：管理 guest 連線
+       ========================================================= */
     function setupHostConnection(conn) {
       conn.on("open", () => {
         console.log("guest connected", conn.peer);
@@ -1573,7 +1684,7 @@
 
         if (slot && state.participants[slot]) {
           scheduleGraceDisconnect(slot, conn.peer);
-          showToast(`${getSlotName(slot)} 暫時離線，保留座位 30 秒`);
+          showToast(`${getSlotName(slot)} 暫時離線，保留座位 2 分鐘`);
         } else {
           refreshAll();
         }
@@ -1584,9 +1695,21 @@
       });
     }
 
+    /* =========================================================
+       24. Host 收到 guest 訊息時的處理
+       ---------------------------------------------------------
+       目前已移除 SET_COLOR
+       因為顏色不再允許玩家自行修改
+       ========================================================= */
     function handleHostMessage(conn, msg) {
       if (!msg || typeof msg !== "object") return;
 
+      /* ---------------------------------------------------------
+         JOIN_REQUEST
+         - 若是同 clientId 重連，優先拿回原本 slot
+         - 否則找空位
+         - 顏色由系統自動分配 / 保留原色
+         --------------------------------------------------------- */
       if (msg.type === "JOIN_REQUEST") {
         const reqClientId = String(msg.clientId || "").slice(0, 80);
         let assignedSlot = "";
@@ -1631,6 +1754,7 @@
         };
 
         normalizeUniqueColors(assignedSlot);
+
         guestConnections.set(conn.peer, {
           conn,
           slot: assignedSlot,
@@ -1649,6 +1773,10 @@
         return;
       }
 
+      /* ---------------------------------------------------------
+         guest 回前景時會傳 APP_PING
+         host 回 APP_PONG，讓 guest 確認房主仍在線
+         --------------------------------------------------------- */
       if (msg.type === "APP_PING") {
         try {
           conn.send({ type: "APP_PONG", token: msg.token || "" });
@@ -1666,18 +1794,10 @@
         return;
       }
 
-      if (msg.type === "SET_COLOR") {
-        if (COLOR_OPTIONS[msg.colorKey]) {
-          state.participants[senderSlot].colorKey = msg.colorKey;
-          normalizeUniqueColors(senderSlot);
-          broadcastState();
-        }
-        return;
-      }
-
       if (msg.type === "SET_ANSWER") {
         const floor = Number(msg.floor);
         const value = String(msg.value || "");
+
         if (!FLOORS.includes(floor)) return;
         if (value && !["1", "2", "3", "4"].includes(value)) return;
 
@@ -1712,11 +1832,15 @@
       }
     }
 
+    /* =========================================================
+       25. Guest 端：連上 host 後的事件
+       ========================================================= */
     function setupGuestConnection(conn) {
       hostConn = conn;
 
       conn.on("open", () => {
         setStatusText(dom.statusSync, "已連上房主", "online");
+
         conn.send({
           type: "JOIN_REQUEST",
           clientId,
@@ -1749,6 +1873,9 @@
       });
     }
 
+    /* =========================================================
+       26. Guest 收到 host 訊息時的處理
+       ========================================================= */
     function handleGuestMessage(msg) {
       if (!msg || typeof msg !== "object") return;
 
@@ -1814,12 +1941,17 @@
       }
     }
 
+    /* =========================================================
+       27. Guest 傳訊息給 host
+       ========================================================= */
     function sendToHost(payload) {
       if (isHost) return;
+
       if (!hostConn || !hostConn.open) {
         showToast("目前未連上房主");
         return;
       }
+
       try {
         hostConn.send(payload);
       } catch (_) {
@@ -1828,11 +1960,15 @@
       }
     }
 
+    /* =========================================================
+       28. 名稱編輯 / 回答更新 / 清板
+       ========================================================= */
     function renameSlot(slot, name) {
       if (!roomId || !state.participants[slot]) return;
       if (!canEditSlot(slot)) return;
 
       const next = sanitizeNick(name) || SLOT_META[slot].label;
+
       if (isHost) {
         state.participants[slot].name = next;
         broadcastState();
@@ -1843,20 +1979,6 @@
       if (slot === mySlot) {
         dom.nicknameInput.value = next;
         saveLocalPrefs();
-      }
-    }
-
-    function changeSlotColor(slot, colorKey) {
-      if (!roomId || !state.participants[slot]) return;
-      if (!canEditSlot(slot)) return;
-      if (!COLOR_OPTIONS[colorKey]) return;
-
-      if (isHost) {
-        state.participants[slot].colorKey = colorKey;
-        normalizeUniqueColors(slot);
-        broadcastState();
-      } else if (slot === mySlot) {
-        sendToHost({ type: "SET_COLOR", colorKey });
       }
     }
 
@@ -1881,6 +2003,7 @@
 
     function clearBoard() {
       if (!roomId) return;
+
       if (isHost) {
         for (const slot of SLOT_KEYS) emptyAnswersForSlot(slot);
         broadcastState();
@@ -1889,6 +2012,9 @@
       }
     }
 
+    /* =========================================================
+       29. Host 移除玩家
+       ========================================================= */
     function kickSlot(slot) {
       if (!isHost || !state.participants[slot] || slot === "p1") return;
 
@@ -1909,25 +2035,9 @@
       broadcastState();
     }
 
-    async function handleCopyLink() {
-      if (!roomId) {
-        showToast("請先建立或加入房間");
-        return;
-      }
-      const ok = await copyText(getInviteLink());
-      showToast(ok ? "已複製邀請連結" : "複製失敗");
-    }
-
-    async function handleCopyRoom() {
-      const currentRoom = getCurrentRoomDisplay();
-      if (!currentRoom) {
-        showToast("請先建立或加入房間");
-        return;
-      }
-      const ok = await copyText(currentRoom);
-      showToast(ok ? "已複製房號" : "複製失敗");
-    }
-
+    /* =========================================================
+       30. 輸入驗證
+       ========================================================= */
     function validateNick() {
       const nick = sanitizeNick(dom.nicknameInput.value);
       if (!nick) {
@@ -1935,11 +2045,15 @@
         dom.nicknameInput.focus();
         return "";
       }
+
       dom.nicknameInput.value = nick;
       saveLocalPrefs();
       return nick;
     }
 
+    /* =========================================================
+       31. 建立房間（Host）
+       ========================================================= */
     async function startHost() {
       if (roomId || pendingJoinRoom) {
         showToast("目前已在房間中");
@@ -1953,6 +2067,7 @@
       if (!nick) return;
 
       const nextRoom = sanitizeRoom(dom.roomInput.value) || generateRoomCode();
+
       dom.createRoomBtn.disabled = true;
       dom.joinRoomBtn.disabled = true;
       dom.statusSync.textContent = "建立中";
@@ -1961,6 +2076,7 @@
       destroyPeer();
 
       const lifecycleId = peerLifecycleId;
+
       state = createEmptyState();
       isHost = true;
       hostReady = false;
@@ -2015,6 +2131,11 @@
       });
     }
 
+    /* =========================================================
+       32. 加入房間（Guest）
+       ---------------------------------------------------------
+       isAuto = true 表示為自動重連
+       ========================================================= */
     async function startJoin(isAuto = false) {
       if ((roomId || pendingJoinRoom) && !isAuto) {
         showToast("目前已在房間中");
@@ -2045,6 +2166,7 @@
       destroyPeer();
 
       const lifecycleId = peerLifecycleId;
+
       state = createEmptyState();
       isHost = false;
       roomId = "";
@@ -2094,6 +2216,9 @@
       });
     }
 
+    /* =========================================================
+       33. 離開房間
+       ========================================================= */
     function leaveRoom() {
       if (!roomId && !pendingJoinRoom) return;
       if (!confirm("確定要離開房間嗎？")) return;
@@ -2117,6 +2242,9 @@
       showToast("已離開房間");
     }
 
+    /* =========================================================
+       34. 重新整理本地畫面狀態
+       ========================================================= */
     function reconnectStateView() {
       if (roomId || pendingJoinRoom) {
         loadLocalXMarks();
@@ -2125,9 +2253,13 @@
       showToast("已重新整理畫面狀態");
     }
 
+    /* =========================================================
+       35. 從網址 hash 還原房號
+       ========================================================= */
     function restoreFromHash() {
       const hash = window.location.hash.replace(/^#/, "");
       if (!hash) return;
+
       const params = new URLSearchParams(hash);
       const room = sanitizeRoom(params.get("room") || hash);
       if (room) {
@@ -2135,10 +2267,14 @@
       }
     }
 
+    /* =========================================================
+       36. 在線名單上的移除按鈕事件
+       ========================================================= */
     function attachGlobalKickActions() {
       dom.presenceList.addEventListener("click", (event) => {
         const target = event.target.closest("[data-kick-slot]");
         if (!target) return;
+
         const slot = target.dataset.kickSlot;
         if (slot && confirm(`確定要移除 ${getSlotName(slot)} 嗎？`)) {
           kickSlot(slot);
@@ -2146,6 +2282,9 @@
       });
     }
 
+    /* =========================================================
+       37. 事件綁定
+       ========================================================= */
     dom.createRoomBtn.addEventListener("click", startHost);
     dom.joinRoomBtn.addEventListener("click", () => startJoin(false));
     dom.copyLinkBtn.addEventListener("click", handleCopyLink);
@@ -2164,6 +2303,11 @@
       }
     });
 
+    /* =========================================================
+       beforeunload：
+       桌機有效，手機不一定可靠
+       主要仍以「斷線保留 + 自動重連」為主
+       ========================================================= */
     window.addEventListener("beforeunload", () => {
       if (!isHost && hostConn && hostConn.open && mySlot) {
         try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
@@ -2173,6 +2317,9 @@
       }
     });
 
+    /* =========================================================
+       38. 初始化
+       ========================================================= */
     restoreLocalPrefs();
     restoreFromHash();
     attachGlobalKickActions();
