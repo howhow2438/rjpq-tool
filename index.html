@@ -612,6 +612,7 @@
     const AUTO_REJOIN_DELAY_MS = 1200;
     const RESUME_PROBE_TIMEOUT_MS = 4000;
     const GUEST_HEARTBEAT_MS = 15000;
+    const MAX_PONG_SILENCE_MS = 45000;
 
     const COLOR_OPTIONS = {
       purple: { label: "紫色", color: "#8b5cf6", color2: "#7c3aed", rgb: "139,92,246" },
@@ -674,6 +675,7 @@
     let resumeProbeTimer = null;
     let guestHeartbeatTimer = null;
     let allowAutoRejoin = false;
+    let reconnectingWithExistingPeer = false;
     let lastPongAt = 0;
 
     const guestConnections = new Map();
@@ -1018,6 +1020,11 @@
         if (!roomId) return;
         if (!hostConn || !hostConn.open) return;
 
+        if (document.visibilityState === "visible" && lastPongAt && (Date.now() - lastPongAt > MAX_PONG_SILENCE_MS)) {
+          scheduleAutoRejoin("heartbeat-silence");
+          return;
+        }
+
         try {
           hostConn.send({
             type: "APP_PING",
@@ -1074,8 +1081,11 @@
       const targetRoom = getReconnectTargetRoom();
       if (!targetRoom) return false;
       if (!peer || peer.destroyed) return false;
+      if (reconnectingWithExistingPeer) return false;
 
       try {
+        reconnectingWithExistingPeer = true;
+
         if (hostConn) {
           try { hostConn.close(); } catch (_) {}
           hostConn = null;
@@ -1085,7 +1095,10 @@
           try { peer.reconnect(); } catch (_) {}
         }
 
-        if (!peer.open) return false;
+        if (!peer.open) {
+          reconnectingWithExistingPeer = false;
+          return false;
+        }
 
         const conn = peer.connect(targetRoom, {
           reliable: true,
@@ -1098,8 +1111,10 @@
 
         setupGuestConnection(conn);
         refreshAll();
+        reconnectingWithExistingPeer = false;
         return true;
       } catch (_) {
+        reconnectingWithExistingPeer = false;
         return false;
       }
     }
@@ -1527,8 +1542,11 @@
         config: {
           iceServers: [
             { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" }
-          ]
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" },
+            { urls: "stun:stun3.l.google.com:19302" }
+          ],
+          iceCandidatePoolSize: 10
         }
       });
     }
@@ -1577,6 +1595,7 @@
       state = createEmptyState();
       allowAutoRejoin = false;
       manualLeaving = false;
+      reconnectingWithExistingPeer = false;
       lastPongAt = 0;
 
       refreshAll();
@@ -1614,9 +1633,7 @@
 
       localPeer.on("disconnected", () => {
         setStatusText(dom.statusSync, isHost ? "房主重新掛線中" : "重新連線中", "warn-text");
-
         try { localPeer.reconnect(); } catch (_) {}
-
         renderStatus();
 
         if (!isHost && allowAutoRejoin) {
@@ -2145,6 +2162,67 @@
           }
         }, 12000);
       });
+    }
+
+    function reconnectToHostWithExistingPeer() {
+      const targetRoom = getReconnectTargetRoom();
+      if (!targetRoom) return false;
+      if (!peer || peer.destroyed) return false;
+      if (reconnectingWithExistingPeer) return false;
+
+      try {
+        reconnectingWithExistingPeer = true;
+
+        if (hostConn) {
+          try { hostConn.close(); } catch (_) {}
+          hostConn = null;
+        }
+
+        if (peer.disconnected) {
+          try { peer.reconnect(); } catch (_) {}
+        }
+
+        if (!peer.open) {
+          reconnectingWithExistingPeer = false;
+          return false;
+        }
+
+        const conn = peer.connect(targetRoom, {
+          reliable: true,
+          serialization: "json",
+          metadata: {
+            name: getCurrentNick(),
+            clientId
+          }
+        });
+
+        setupGuestConnection(conn);
+        refreshAll();
+        reconnectingWithExistingPeer = false;
+        return true;
+      } catch (_) {
+        reconnectingWithExistingPeer = false;
+        return false;
+      }
+    }
+
+    function scheduleAutoRejoin(reason = "") {
+      if (isHost || manualLeaving) return;
+
+      const targetRoom = getReconnectTargetRoom();
+      if (!targetRoom) return;
+
+      clearTimeout(autoRejoinTimer);
+      pendingJoinRoom = targetRoom;
+      dom.roomInput.value = targetRoom;
+      setStatusText(dom.statusSync, "連線中斷，重連中", "warn-text");
+
+      autoRejoinTimer = setTimeout(() => {
+        autoRejoinTimer = null;
+        const reused = reconnectToHostWithExistingPeer();
+        if (reused) return;
+        startJoin(true);
+      }, AUTO_REJOIN_DELAY_MS);
     }
 
     function leaveRoom() {
