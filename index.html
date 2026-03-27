@@ -9,9 +9,6 @@
   <title>Artale 羅茱平台助手</title>
 
   <style>
-    /* =========================================================
-       基本色票 / 主題變數
-       ========================================================= */
     :root {
       --bg: #0b1220;
       --panel: #111a2b;
@@ -606,29 +603,16 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    /* =========================================================
-       1. 常數設定
-       ---------------------------------------------------------
-       - SLOT_KEYS：固定 4 個玩家欄位
-       - FLOORS：1~10 樓
-       - DISPLAY_FLOORS：畫面顯示由 10F 往下
-       - LONG_PRESS_MS：長按時間，用來切換 X 註記
-       - RECONNECT_GRACE_MS：斷線保留時間（目前 2 分鐘）
-       ========================================================= */
     const SLOT_KEYS = ["p1", "p2", "p3", "p4"];
     const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
     const DISPLAY_FLOORS = [...FLOORS].reverse();
 
     const LONG_PRESS_MS = 550;
-    const RECONNECT_GRACE_MS = 120000;     // 2 分鐘
+    const RECONNECT_GRACE_MS = 600000; // 10 分鐘
     const AUTO_REJOIN_DELAY_MS = 1200;
     const RESUME_PROBE_TIMEOUT_MS = 4000;
+    const GUEST_HEARTBEAT_MS = 15000;
 
-    /* =========================================================
-       2. 顏色設定
-       ---------------------------------------------------------
-       顏色現在只做「系統自動分配」，不提供手動更改。
-       ========================================================= */
     const COLOR_OPTIONS = {
       purple: { label: "紫色", color: "#8b5cf6", color2: "#7c3aed", rgb: "139,92,246" },
       green:  { label: "綠色", color: "#22c55e", color2: "#16a34a", rgb: "34,197,94" },
@@ -636,11 +620,6 @@
       red:    { label: "紅色", color: "#ef4444", color2: "#dc2626", rgb: "239,68,68" }
     };
 
-    /* =========================================================
-       依照預設欄位順序建議顏色
-       p1 紫 / p2 綠 / p3 黃 / p4 紅
-       若某色已被占用，會改找下一個可用色
-       ========================================================= */
     const DEFAULT_SLOT_COLORS = {
       p1: "purple",
       p2: "green",
@@ -655,9 +634,6 @@
       p4: { label: "玩家4", className: "player-p4" }
     };
 
-    /* =========================================================
-       3. DOM 快取
-       ========================================================= */
     const $ = (id) => document.getElementById(id);
 
     const dom = {
@@ -682,9 +658,6 @@
       toast: $("toast")
     };
 
-    /* =========================================================
-       4. Peer / 連線狀態變數
-       ========================================================= */
     let peer = null;
     let isHost = false;
     let roomId = "";
@@ -699,34 +672,21 @@
     let manualLeaving = false;
     let autoRejoinTimer = null;
     let resumeProbeTimer = null;
+    let guestHeartbeatTimer = null;
     let allowAutoRejoin = false;
+    let lastPongAt = 0;
 
     const guestConnections = new Map();
     const graceDisconnectTimers = new Map();
 
-    /* =========================================================
-       clientId：
-       用來辨識「同一台裝置 / 同一個瀏覽器」
-       這樣掉線重連時，host 才能把同一個人放回原本 slot
-       ========================================================= */
     const clientId = getOrCreateClientId();
 
-    /* =========================================================
-       5. 本地狀態
-       - participants：玩家資料
-       - answers：每層每人所選數字
-       - localXMarks：僅本地端的 X 註記，不同步給其他人
-       ========================================================= */
     let state = createEmptyState();
     let localXMarks = {};
 
-    /* =========================================================
-       6. 基本工具
-       ========================================================= */
     function getOrCreateClientId() {
       const KEY = "rjpq_client_id_v1";
       let id = localStorage.getItem(KEY);
-
       if (!id) {
         id = (window.crypto && crypto.randomUUID)
           ? crypto.randomUUID()
@@ -739,7 +699,6 @@
     function createEmptyState() {
       const participants = {};
       SLOT_KEYS.forEach((slot) => participants[slot] = null);
-
       return {
         participants,
         answers: {},
@@ -794,7 +753,6 @@
 
     async function copyText(text) {
       if (!text) return false;
-
       try {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(text);
@@ -821,9 +779,20 @@
       return COLOR_OPTIONS[colorKey]?.label || "紫色";
     }
 
-    /* =========================================================
-       7. 本地儲存：暱稱 / X 註記
-       ========================================================= */
+    function getGraceText() {
+      const minutes = RECONNECT_GRACE_MS / 60000;
+      if (Number.isInteger(minutes)) return `${minutes} 分鐘`;
+      return `${Math.round(RECONNECT_GRACE_MS / 1000)} 秒`;
+    }
+
+    function getCurrentNick() {
+      return sanitizeNick(dom.nicknameInput.value) || "玩家";
+    }
+
+    function getReconnectTargetRoom() {
+      return sanitizeRoom(roomId || pendingJoinRoom || hostPeerId || dom.roomInput.value);
+    }
+
     function saveLocalPrefs() {
       localStorage.setItem("rjpq_peerjs_nick", dom.nicknameInput.value.trim());
     }
@@ -860,7 +829,6 @@
     function saveLocalXMarks() {
       const storageKey = getLocalXStorageKey();
       if (!storageKey) return;
-
       try {
         localStorage.setItem(storageKey, JSON.stringify(localXMarks));
       } catch (_) {}
@@ -874,14 +842,10 @@
       const key = `${floor}:${value}`;
       if (localXMarks[key]) delete localXMarks[key];
       else localXMarks[key] = 1;
-
       saveLocalXMarks();
       renderBoard();
     }
 
-    /* =========================================================
-       8. 邀請連結 / 房號複製
-       ========================================================= */
     function getInviteLink() {
       if (!roomId) return "";
       const url = new URL(window.location.href);
@@ -896,7 +860,6 @@
         showToast("請先建立或加入房間");
         return;
       }
-
       const ok = await copyText(getInviteLink());
       showToast(ok ? "已複製邀請連結" : "複製失敗");
     }
@@ -907,17 +870,10 @@
         showToast("請先建立或加入房間");
         return;
       }
-
       const ok = await copyText(currentRoom);
       showToast(ok ? "已複製房號" : "複製失敗");
     }
 
-    /* =========================================================
-       9. 顏色分配邏輯
-       ---------------------------------------------------------
-       - 只保留「自動分配」功能
-       - 玩家無法自行挑選
-       ========================================================= */
     function getUsedColorKeys(exceptSlot = "") {
       const used = new Set();
       SLOT_KEYS.forEach((slot) => {
@@ -985,9 +941,6 @@
       return `--slot-color:${theme.color};--slot-color-2:${theme.color2};--slot-rgb:${theme.rgb};`;
     }
 
-    /* =========================================================
-       10. 玩家 / 答案資料工具
-       ========================================================= */
     function getSlotName(slot) {
       return state.participants[slot]?.name || SLOT_META[slot].label;
     }
@@ -1049,9 +1002,31 @@
       return mySlot === slot;
     }
 
-    /* =========================================================
-       11. 斷線保留 / 重連工具
-       ========================================================= */
+    function stopGuestHeartbeat() {
+      if (guestHeartbeatTimer) {
+        clearInterval(guestHeartbeatTimer);
+        guestHeartbeatTimer = null;
+      }
+    }
+
+    function startGuestHeartbeat() {
+      stopGuestHeartbeat();
+      if (isHost) return;
+
+      guestHeartbeatTimer = setInterval(() => {
+        if (manualLeaving) return;
+        if (!roomId) return;
+        if (!hostConn || !hostConn.open) return;
+
+        try {
+          hostConn.send({
+            type: "APP_PING",
+            token: `hb_${Date.now()}`
+          });
+        } catch (_) {}
+      }, GUEST_HEARTBEAT_MS);
+    }
+
     function clearJoinTimeout() {
       if (joinTimeoutTimer) {
         clearTimeout(joinTimeoutTimer);
@@ -1095,10 +1070,44 @@
       broadcastState();
     }
 
+    function reconnectToHostWithExistingPeer() {
+      const targetRoom = getReconnectTargetRoom();
+      if (!targetRoom) return false;
+      if (!peer || peer.destroyed) return false;
+
+      try {
+        if (hostConn) {
+          try { hostConn.close(); } catch (_) {}
+          hostConn = null;
+        }
+
+        if (peer.disconnected) {
+          try { peer.reconnect(); } catch (_) {}
+        }
+
+        if (!peer.open) return false;
+
+        const conn = peer.connect(targetRoom, {
+          reliable: true,
+          serialization: "json",
+          metadata: {
+            name: getCurrentNick(),
+            clientId
+          }
+        });
+
+        setupGuestConnection(conn);
+        refreshAll();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
     function scheduleAutoRejoin(reason = "") {
       if (isHost || manualLeaving) return;
 
-      const targetRoom = sanitizeRoom(roomId || pendingJoinRoom || hostPeerId || dom.roomInput.value);
+      const targetRoom = getReconnectTargetRoom();
       if (!targetRoom) return;
 
       clearTimeout(autoRejoinTimer);
@@ -1108,6 +1117,8 @@
 
       autoRejoinTimer = setTimeout(() => {
         autoRejoinTimer = null;
+        const reused = reconnectToHostWithExistingPeer();
+        if (reused) return;
         startJoin(true);
       }, AUTO_REJOIN_DELAY_MS);
     }
@@ -1115,9 +1126,8 @@
     function probeGuestConnectionOnResume() {
       if (isHost || manualLeaving) return;
 
-      const targetRoom = sanitizeRoom(roomId || pendingJoinRoom || hostPeerId || dom.roomInput.value);
+      const targetRoom = getReconnectTargetRoom();
       if (!targetRoom) return;
-
       if (!allowAutoRejoin && !roomId) return;
 
       if (!hostConn || !hostConn.open) {
@@ -1160,9 +1170,6 @@
       });
     }
 
-    /* =========================================================
-       12. 狀態顯示工具
-       ========================================================= */
     function setStatusText(el, text, kind) {
       el.textContent = text;
       el.className = "";
@@ -1211,9 +1218,6 @@
       dom.roomInput.readOnly = inOrJoiningRoom;
     }
 
-    /* =========================================================
-       13. 畫面渲染：在線名單
-       ========================================================= */
     function renderPresence() {
       const list = getConnectedParticipants();
 
@@ -1235,7 +1239,7 @@
         wrapper.style.background = `rgba(${theme.rgb}, .14)`;
         wrapper.style.color = theme.color;
 
-        const offlineText = participant.online === false ? "｜暫離保留中" : "";
+        const offlineText = participant.online === false ? `｜暫離保留中（${getGraceText()}）` : "";
         wrapper.textContent =
           `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}${offlineText}`;
 
@@ -1252,13 +1256,6 @@
       });
     }
 
-    /* =========================================================
-       14. 畫面渲染：玩家欄位
-       ---------------------------------------------------------
-       重點：
-       - 顏色只顯示，不提供選擇 UI
-       - 名稱仍可由自己 / host 編輯
-       ========================================================= */
     function renderPlayers() {
       dom.playerInputs.innerHTML = "";
 
@@ -1307,7 +1304,7 @@
           <div class="help-line">
             自動配色：${colorName(getColorKey(slot))}
             ${participant ? `｜ID ${String(participant.peerId || "").slice(0, 8)}` : ""}
-            ${participant?.online === false ? "｜保留中" : ""}
+            ${participant?.online === false ? `｜保留 ${getGraceText()}` : ""}
           </div>
         `;
 
@@ -1322,9 +1319,6 @@
       });
     }
 
-    /* =========================================================
-       15. 畫面渲染：複製按鈕
-       ========================================================= */
     function renderCopyActions() {
       dom.copyPlayerActions.innerHTML = "";
 
@@ -1343,13 +1337,6 @@
       });
     }
 
-    /* =========================================================
-       16. 平台按鈕：長按 / 右鍵 X 註記
-       ---------------------------------------------------------
-       - 手機：長按 550ms 切換 X
-       - 桌機：右鍵切換 X
-       - 短按：正常選號 / 取消自己選的號
-       ========================================================= */
     function attachLongPressHandlers(btn, floor, value) {
       let pressTimer = null;
 
@@ -1395,9 +1382,6 @@
       });
     }
 
-    /* =========================================================
-       17. 畫面渲染：平台板
-       ========================================================= */
     function renderBoard() {
       const rows = DISPLAY_FLOORS.map((floor) => {
         const selections = getFloorSelections(floor);
@@ -1484,9 +1468,6 @@
       });
     }
 
-    /* =========================================================
-       18. 統一刷新畫面
-       ========================================================= */
     function refreshAll() {
       renderStatus();
       renderPresence();
@@ -1495,9 +1476,6 @@
       renderCopyActions();
     }
 
-    /* =========================================================
-       19. Host 廣播同步狀態給所有 guest
-       ========================================================= */
     function broadcastState() {
       if (!isHost) return;
 
@@ -1514,9 +1492,6 @@
       refreshAll();
     }
 
-    /* =========================================================
-       20. PeerJS 載入 / 建立
-       ========================================================= */
     let peerScriptPromise = null;
     let peerLifecycleId = 0;
 
@@ -1558,13 +1533,6 @@
       });
     }
 
-    /* =========================================================
-       21. 清理目前 Peer 與連線狀態
-       ---------------------------------------------------------
-       注意：
-       destroyPeer 會把目前房間狀態清空
-       所以在 startHost / startJoin 裡會再重新設定狀態
-       ========================================================= */
     function destroyPeer() {
       peerLifecycleId += 1;
 
@@ -1575,6 +1543,8 @@
 
       clearTimeout(resumeProbeTimer);
       resumeProbeTimer = null;
+
+      stopGuestHeartbeat();
 
       for (const timer of graceDisconnectTimers.values()) {
         clearTimeout(timer);
@@ -1607,16 +1577,11 @@
       state = createEmptyState();
       allowAutoRejoin = false;
       manualLeaving = false;
+      lastPongAt = 0;
 
       refreshAll();
     }
 
-    /* =========================================================
-       22. Peer 共用事件
-       ---------------------------------------------------------
-       - disconnected：嘗試 peer.reconnect()
-       - guest 若允許自動重連，會排程重新加入
-       ========================================================= */
     function setupCommonPeerEvents(localPeer) {
       localPeer.on("error", (err) => {
         console.error(err);
@@ -1664,9 +1629,6 @@
       });
     }
 
-    /* =========================================================
-       23. Host 端：管理 guest 連線
-       ========================================================= */
     function setupHostConnection(conn) {
       conn.on("open", () => {
         console.log("guest connected", conn.peer);
@@ -1684,7 +1646,7 @@
 
         if (slot && state.participants[slot]) {
           scheduleGraceDisconnect(slot, conn.peer);
-          showToast(`${getSlotName(slot)} 暫時離線，保留座位 2 分鐘`);
+          showToast(`${getSlotName(slot)} 暫時離線，保留座位 ${getGraceText()}`);
         } else {
           refreshAll();
         }
@@ -1695,21 +1657,9 @@
       });
     }
 
-    /* =========================================================
-       24. Host 收到 guest 訊息時的處理
-       ---------------------------------------------------------
-       目前已移除 SET_COLOR
-       因為顏色不再允許玩家自行修改
-       ========================================================= */
     function handleHostMessage(conn, msg) {
       if (!msg || typeof msg !== "object") return;
 
-      /* ---------------------------------------------------------
-         JOIN_REQUEST
-         - 若是同 clientId 重連，優先拿回原本 slot
-         - 否則找空位
-         - 顏色由系統自動分配 / 保留原色
-         --------------------------------------------------------- */
       if (msg.type === "JOIN_REQUEST") {
         const reqClientId = String(msg.clientId || "").slice(0, 80);
         let assignedSlot = "";
@@ -1773,10 +1723,6 @@
         return;
       }
 
-      /* ---------------------------------------------------------
-         guest 回前景時會傳 APP_PING
-         host 回 APP_PONG，讓 guest 確認房主仍在線
-         --------------------------------------------------------- */
       if (msg.type === "APP_PING") {
         try {
           conn.send({ type: "APP_PONG", token: msg.token || "" });
@@ -1832,9 +1778,6 @@
       }
     }
 
-    /* =========================================================
-       25. Guest 端：連上 host 後的事件
-       ========================================================= */
     function setupGuestConnection(conn) {
       hostConn = conn;
 
@@ -1844,8 +1787,11 @@
         conn.send({
           type: "JOIN_REQUEST",
           clientId,
-          name: sanitizeNick(dom.nicknameInput.value) || "玩家"
+          name: getCurrentNick()
         });
+
+        startGuestHeartbeat();
+        lastPongAt = Date.now();
       });
 
       conn.on("data", (msg) => {
@@ -1856,6 +1802,7 @@
         hostConn = null;
         clearTimeout(resumeProbeTimer);
         resumeProbeTimer = null;
+        stopGuestHeartbeat();
 
         if (manualLeaving) return;
 
@@ -1868,14 +1815,12 @@
         console.error(err);
         if (!manualLeaving) {
           showToast("連線到房主失敗，準備重連…");
+          stopGuestHeartbeat();
           scheduleAutoRejoin("conn-error");
         }
       });
     }
 
-    /* =========================================================
-       26. Guest 收到 host 訊息時的處理
-       ========================================================= */
     function handleGuestMessage(msg) {
       if (!msg || typeof msg !== "object") return;
 
@@ -1925,6 +1870,7 @@
       }
 
       if (msg.type === "APP_PONG") {
+        lastPongAt = Date.now();
         if (msg.token && msg.token === probeGuestConnectionOnResume.lastToken) {
           clearTimeout(resumeProbeTimer);
           resumeProbeTimer = null;
@@ -1941,9 +1887,6 @@
       }
     }
 
-    /* =========================================================
-       27. Guest 傳訊息給 host
-       ========================================================= */
     function sendToHost(payload) {
       if (isHost) return;
 
@@ -1960,9 +1903,6 @@
       }
     }
 
-    /* =========================================================
-       28. 名稱編輯 / 回答更新 / 清板
-       ========================================================= */
     function renameSlot(slot, name) {
       if (!roomId || !state.participants[slot]) return;
       if (!canEditSlot(slot)) return;
@@ -2012,9 +1952,6 @@
       }
     }
 
-    /* =========================================================
-       29. Host 移除玩家
-       ========================================================= */
     function kickSlot(slot) {
       if (!isHost || !state.participants[slot] || slot === "p1") return;
 
@@ -2035,9 +1972,6 @@
       broadcastState();
     }
 
-    /* =========================================================
-       30. 輸入驗證
-       ========================================================= */
     function validateNick() {
       const nick = sanitizeNick(dom.nicknameInput.value);
       if (!nick) {
@@ -2051,9 +1985,6 @@
       return nick;
     }
 
-    /* =========================================================
-       31. 建立房間（Host）
-       ========================================================= */
     async function startHost() {
       if (roomId || pendingJoinRoom) {
         showToast("目前已在房間中");
@@ -2131,11 +2062,6 @@
       });
     }
 
-    /* =========================================================
-       32. 加入房間（Guest）
-       ---------------------------------------------------------
-       isAuto = true 表示為自動重連
-       ========================================================= */
     async function startJoin(isAuto = false) {
       if ((roomId || pendingJoinRoom) && !isAuto) {
         showToast("目前已在房間中");
@@ -2144,10 +2070,7 @@
 
       manualLeaving = false;
 
-      const nick = isAuto
-        ? (sanitizeNick(dom.nicknameInput.value) || "玩家")
-        : validateNick();
-
+      const nick = isAuto ? getCurrentNick() : validateNick();
       if (!nick) return;
 
       const targetRoom = sanitizeRoom(dom.roomInput.value || roomId || pendingJoinRoom || hostPeerId);
@@ -2162,6 +2085,14 @@
       dom.statusSync.textContent = isAuto ? "重連中" : "連線中";
       dom.roomInput.value = targetRoom;
       saveLocalPrefs();
+
+      if (isAuto && peer && !peer.destroyed) {
+        pendingJoinRoom = targetRoom;
+        hostPeerId = targetRoom;
+
+        const reused = reconnectToHostWithExistingPeer();
+        if (reused) return;
+      }
 
       destroyPeer();
 
@@ -2216,15 +2147,13 @@
       });
     }
 
-    /* =========================================================
-       33. 離開房間
-       ========================================================= */
     function leaveRoom() {
       if (!roomId && !pendingJoinRoom) return;
       if (!confirm("確定要離開房間嗎？")) return;
 
       manualLeaving = true;
       allowAutoRejoin = false;
+      stopGuestHeartbeat();
 
       if (!isHost && hostConn && hostConn.open && mySlot) {
         try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
@@ -2242,20 +2171,20 @@
       showToast("已離開房間");
     }
 
-    /* =========================================================
-       34. 重新整理本地畫面狀態
-       ========================================================= */
     function reconnectStateView() {
       if (roomId || pendingJoinRoom) {
         loadLocalXMarks();
       }
+
       refreshAll();
-      showToast("已重新整理畫面狀態");
+
+      if (!isHost && (roomId || pendingJoinRoom) && (!hostConn || !hostConn.open)) {
+        scheduleAutoRejoin("manual-reconnect-view");
+      }
+
+      showToast("已重新整理房間狀態");
     }
 
-    /* =========================================================
-       35. 從網址 hash 還原房號
-       ========================================================= */
     function restoreFromHash() {
       const hash = window.location.hash.replace(/^#/, "");
       if (!hash) return;
@@ -2267,9 +2196,6 @@
       }
     }
 
-    /* =========================================================
-       36. 在線名單上的移除按鈕事件
-       ========================================================= */
     function attachGlobalKickActions() {
       dom.presenceList.addEventListener("click", (event) => {
         const target = event.target.closest("[data-kick-slot]");
@@ -2282,9 +2208,6 @@
       });
     }
 
-    /* =========================================================
-       37. 事件綁定
-       ========================================================= */
     dom.createRoomBtn.addEventListener("click", startHost);
     dom.joinRoomBtn.addEventListener("click", () => startJoin(false));
     dom.copyLinkBtn.addEventListener("click", handleCopyLink);
@@ -2303,23 +2226,18 @@
       }
     });
 
-    /* =========================================================
-       beforeunload：
-       桌機有效，手機不一定可靠
-       主要仍以「斷線保留 + 自動重連」為主
-       ========================================================= */
     window.addEventListener("beforeunload", () => {
+      stopGuestHeartbeat();
+
       if (!isHost && hostConn && hostConn.open && mySlot) {
         try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
       }
+
       if (peer) {
         try { peer.destroy(); } catch (_) {}
       }
     });
 
-    /* =========================================================
-       38. 初始化
-       ========================================================= */
     restoreLocalPrefs();
     restoreFromHash();
     attachGlobalKickActions();
