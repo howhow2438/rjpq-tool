@@ -583,7 +583,7 @@
     <section class="card board-card">
       <div class="board-toolbar">
         <h2 class="section-title" style="margin:0;">平台記錄</h2>
-        <div class="hint">短按選數字｜長按 / 右鍵可切換 X 註記</div>
+        <div class="hint">單擊選數字｜雙擊 / 雙點可切換 X 註記</div>
       </div>
       <div class="board-scroll">
         <div class="matrix" id="boardBody"></div>
@@ -607,7 +607,7 @@
     const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
     const DISPLAY_FLOORS = [...FLOORS].reverse();
 
-    const LONG_PRESS_MS = 550;
+    const DOUBLE_TAP_MS = 280;
     const RECONNECT_GRACE_MS = 600000; // 10 分鐘
     const AUTO_REJOIN_DELAY_MS = 1200;
     const RESUME_PROBE_TIMEOUT_MS = 4000;
@@ -685,6 +685,12 @@
 
     let state = createEmptyState();
     let localXMarks = {};
+
+    const tapActionState = {
+      key: "",
+      timer: null,
+      payload: null
+    };
 
     function getOrCreateClientId() {
       const KEY = "rjpq_client_id_v1";
@@ -846,6 +852,15 @@
       else localXMarks[key] = 1;
       saveLocalXMarks();
       renderBoard();
+    }
+
+    function clearTapActionState() {
+      if (tapActionState.timer) {
+        clearTimeout(tapActionState.timer);
+      }
+      tapActionState.key = "";
+      tapActionState.timer = null;
+      tapActionState.payload = null;
     }
 
     function getInviteLink() {
@@ -1352,49 +1367,50 @@
       });
     }
 
-    function attachLongPressHandlers(btn, floor, value) {
-      let pressTimer = null;
+    function runSinglePickAction(floor, value) {
+      const ownerSlot = getSelectedSlotByValue(floor, value);
 
-      const startPress = (event) => {
-        if (!value) return;
-        if (event.type === "mousedown" && event.button !== 0) return;
-
-        clearTimeout(pressTimer);
-        btn.dataset.longPressTriggered = "";
-
-        pressTimer = setTimeout(() => {
-          btn.dataset.longPressTriggered = "1";
-          toggleLocalXMark(floor, value);
-          try {
-            if (navigator.vibrate) navigator.vibrate(18);
-          } catch (_) {}
-        }, LONG_PRESS_MS);
-      };
-
-      const cancelPress = () => {
-        clearTimeout(pressTimer);
-        pressTimer = null;
-      };
-
-      if (window.PointerEvent) {
-        btn.addEventListener("pointerdown", startPress, { passive: true });
-        btn.addEventListener("pointerup", cancelPress, { passive: true });
-        btn.addEventListener("pointerleave", cancelPress, { passive: true });
-        btn.addEventListener("pointercancel", cancelPress, { passive: true });
-      } else {
-        btn.addEventListener("touchstart", startPress, { passive: true });
-        btn.addEventListener("touchend", cancelPress, { passive: true });
-        btn.addEventListener("touchcancel", cancelPress, { passive: true });
-        btn.addEventListener("mousedown", startPress);
-        btn.addEventListener("mouseup", cancelPress);
-        btn.addEventListener("mouseleave", cancelPress);
+      if (!roomId || !mySlot) {
+        showToast("請先建立或加入房間");
+        return;
       }
 
-      btn.addEventListener("contextmenu", (event) => {
-        event.preventDefault();
-        if (!value) return;
+      if (ownerSlot && ownerSlot !== mySlot) {
+        showToast(`${getSlotName(ownerSlot)} 已選 ${value}`);
+        return;
+      }
+
+      const current = getAnswer(floor, mySlot);
+      const nextValue = current === value ? "" : value;
+      updateAnswer(mySlot, floor, nextValue);
+    }
+
+    function handlePickButtonPress(floor, value) {
+      if (!value) return;
+
+      const key = `${floor}:${value}`;
+
+      if (tapActionState.timer && tapActionState.key === key) {
+        clearTapActionState();
         toggleLocalXMark(floor, value);
-      });
+        return;
+      }
+
+      if (tapActionState.timer && tapActionState.payload) {
+        const prev = { ...tapActionState.payload };
+        clearTapActionState();
+        runSinglePickAction(prev.floor, prev.value);
+      }
+
+      tapActionState.key = key;
+      tapActionState.payload = { floor, value };
+      tapActionState.timer = setTimeout(() => {
+        const pending = tapActionState.payload;
+        clearTapActionState();
+        if (pending) {
+          runSinglePickAction(pending.floor, pending.value);
+        }
+      }, DOUBLE_TAP_MS);
     }
 
     function renderBoard() {
@@ -1454,31 +1470,13 @@
         const floor = Number(btn.dataset.floor);
         const value = String(btn.dataset.value || "");
 
-        attachLongPressHandlers(btn, floor, value);
-
         btn.addEventListener("click", (event) => {
-          if (btn.dataset.longPressTriggered === "1") {
-            btn.dataset.longPressTriggered = "";
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-          }
+          event.preventDefault();
+          handlePickButtonPress(floor, value);
+        });
 
-          const ownerSlot = btn.dataset.ownerSlot || "";
-
-          if (!roomId || !mySlot) {
-            showToast("請先建立或加入房間");
-            return;
-          }
-
-          if (ownerSlot && ownerSlot !== mySlot) {
-            showToast(`${getSlotName(ownerSlot)} 已選 ${value}`);
-            return;
-          }
-
-          const current = getAnswer(floor, mySlot);
-          const nextValue = current === value ? "" : value;
-          updateAnswer(mySlot, floor, nextValue);
+        btn.addEventListener("dblclick", (event) => {
+          event.preventDefault();
         });
       });
     }
@@ -1554,6 +1552,7 @@
     function destroyPeer() {
       peerLifecycleId += 1;
 
+      clearTapActionState();
       clearJoinTimeout();
 
       clearTimeout(autoRejoinTimer);
@@ -2164,67 +2163,6 @@
       });
     }
 
-    function reconnectToHostWithExistingPeer() {
-      const targetRoom = getReconnectTargetRoom();
-      if (!targetRoom) return false;
-      if (!peer || peer.destroyed) return false;
-      if (reconnectingWithExistingPeer) return false;
-
-      try {
-        reconnectingWithExistingPeer = true;
-
-        if (hostConn) {
-          try { hostConn.close(); } catch (_) {}
-          hostConn = null;
-        }
-
-        if (peer.disconnected) {
-          try { peer.reconnect(); } catch (_) {}
-        }
-
-        if (!peer.open) {
-          reconnectingWithExistingPeer = false;
-          return false;
-        }
-
-        const conn = peer.connect(targetRoom, {
-          reliable: true,
-          serialization: "json",
-          metadata: {
-            name: getCurrentNick(),
-            clientId
-          }
-        });
-
-        setupGuestConnection(conn);
-        refreshAll();
-        reconnectingWithExistingPeer = false;
-        return true;
-      } catch (_) {
-        reconnectingWithExistingPeer = false;
-        return false;
-      }
-    }
-
-    function scheduleAutoRejoin(reason = "") {
-      if (isHost || manualLeaving) return;
-
-      const targetRoom = getReconnectTargetRoom();
-      if (!targetRoom) return;
-
-      clearTimeout(autoRejoinTimer);
-      pendingJoinRoom = targetRoom;
-      dom.roomInput.value = targetRoom;
-      setStatusText(dom.statusSync, "連線中斷，重連中", "warn-text");
-
-      autoRejoinTimer = setTimeout(() => {
-        autoRejoinTimer = null;
-        const reused = reconnectToHostWithExistingPeer();
-        if (reused) return;
-        startJoin(true);
-      }, AUTO_REJOIN_DELAY_MS);
-    }
-
     function leaveRoom() {
       if (!roomId && !pendingJoinRoom) return;
       if (!confirm("確定要離開房間嗎？")) return;
@@ -2306,6 +2244,7 @@
 
     window.addEventListener("beforeunload", () => {
       stopGuestHeartbeat();
+      clearTapActionState();
 
       if (!isHost && hostConn && hostConn.open && mySlot) {
         try { hostConn.send({ type: "LEAVE_ROOM" }); } catch (_) {}
