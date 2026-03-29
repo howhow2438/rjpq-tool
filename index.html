@@ -36,44 +36,44 @@
       font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
     }
 
-    body { padding: 10px; }
+    body { padding: 8px; }
 
     .app {
-      max-width: 980px;
+      max-width: 920px;
       margin: 0 auto;
       display: grid;
-      gap: 12px;
-      padding-bottom: calc(110px + env(safe-area-inset-bottom));
+      gap: 8px;
+      padding-bottom: calc(88px + env(safe-area-inset-bottom));
     }
 
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 18px;
+      border-radius: 15px;
       box-shadow: var(--shadow);
-      padding: 14px;
+      padding: 10px;
     }
 
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      padding: 12px;
+      gap: 8px;
+      padding: 10px;
     }
 
     .title {
       margin: 0;
-      font-size: 22px;
+      font-size: 20px;
       line-height: 1.15;
       font-weight: 900;
     }
 
     .sub {
       margin-top: 4px;
-      font-size: 12px;
+      font-size: 11px;
       color: var(--muted);
-      line-height: 1.4;
+      line-height: 1.35;
     }
 
     .mini-chips, .presence-list {
@@ -93,7 +93,7 @@
     .chip, .status-pill, .presence-chip {
       padding: 5px 9px;
       border-radius: 999px;
-      font-size: 11px;
+      font-size: 10px;
       border: 1px solid rgba(79, 140, 255, .2);
       background: rgba(79, 140, 255, .12);
       color: #dbeafe;
@@ -104,26 +104,26 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      min-height: 38px;
-      padding: 8px 10px;
-      border-radius: 12px;
+      gap: 6px;
+      min-height: 32px;
+      padding: 6px 8px;
+      border-radius: 10px;
       white-space: normal;
     }
 
     .presence-list {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 6px;
     }
 
     .presence-chip {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      min-height: 40px;
-      border-radius: 12px;
+      gap: 6px;
+      min-height: 34px;
+      border-radius: 10px;
       white-space: normal;
     }
 
@@ -142,8 +142,8 @@
     }
 
     .section-title {
-      margin: 0 0 8px;
-      font-size: 15px;
+      margin: 0 0 6px;
+      font-size: 13px;
       font-weight: 900;
     }
 
@@ -151,12 +151,12 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 6px;
+      margin-bottom: 5px;
     }
 
     .hint {
-      font-size: 11px;
+      font-size: 8px;
       color: var(--muted);
       white-space: nowrap;
     }
@@ -188,8 +188,8 @@
       background: #0d1525;
       color: var(--text);
       border-radius: 12px;
-      padding: 10px 11px;
-      font-size: 15px;
+      padding: 8px 10px;
+      font-size: 14px;
       outline: none;
     }
 
@@ -222,8 +222,8 @@
     }
 
     .btn {
-      min-height: 42px;
-      padding: 10px 12px;
+      min-height: 36px;
+      padding: 8px 10px;
       color: white;
       background: linear-gradient(180deg, var(--primary), var(--primary-2));
     }
@@ -245,14 +245,14 @@
     .players-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
-      gap: 10px;
+      gap: 6px;
     }
 
     .player-box {
       background: var(--panel-2);
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 10px;
+      border-radius: 12px;
+      padding: 6px 7px;
       min-width: 0;
     }
 
@@ -261,11 +261,11 @@
       justify-content: space-between;
       gap: 6px;
       align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .player-title {
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 900;
       display: inline-flex;
       align-items: center;
@@ -273,8 +273,8 @@
     }
 
     .player-role {
-      font-size: 10px;
-      padding: 3px 6px;
+      font-size: 9px;
+      padding: 2px 5px;
       border-radius: 999px;
       background: rgba(255,255,255,.08);
       color: var(--muted);
@@ -301,14 +301,14 @@
     }
 
     .help-line {
-      font-size: 11px;
+      font-size: 9px;
       color: var(--muted);
-      margin-top: 6px;
-      line-height: 1.45;
+      margin-top: 3px;
+      line-height: 1.25;
     }
 
     .board-card {
-      padding: 12px;
+      padding: 8px;
       position: relative;
       overflow: hidden;
     }
@@ -317,20 +317,20 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
+      gap: 6px;
+      margin-bottom: 6px;
       position: sticky;
       top: 0;
       z-index: 5;
-      padding-bottom: 10px;
+      padding-bottom: 6px;
       background: linear-gradient(180deg, rgba(17,26,43,.98) 0%, rgba(17,26,43,.94) 82%, rgba(17,26,43,0) 100%);
       backdrop-filter: blur(8px);
     }
 
     .board-scroll {
       display: grid;
-      gap: 8px;
-      max-height: min(68vh, 760px);
+      gap: 6px;
+      max-height: min(62vh, 680px);
       overflow: auto;
       padding-right: 2px;
       overscroll-behavior: contain;
@@ -348,25 +348,25 @@
     .matrix {
       min-width: 0;
       display: grid;
-      gap: 10px;
+      gap: 6px;
     }
 
     .shared-floor-card {
       display: grid;
-      grid-template-columns: 68px 1fr;
-      gap: 10px;
+      grid-template-columns: 54px 1fr;
+      gap: 6px;
       align-items: center;
-      padding: 10px;
+      padding: 6px;
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 12px;
       background: var(--panel-2);
       content-visibility: auto;
-      contain-intrinsic-size: 88px;
+      contain-intrinsic-size: 66px;
     }
 
     .floor-cell {
       display: grid;
-      gap: 6px;
+      gap: 4px;
       justify-items: center;
     }
 
@@ -374,18 +374,18 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 48px;
-      padding: 5px 8px;
+      min-width: 36px;
+      padding: 3px 5px;
       border-radius: 999px;
       background: rgba(79, 140, 255, .14);
       border: 1px solid rgba(79, 140, 255, .22);
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 900;
       color: #e8f0ff;
     }
 
     .floor-count {
-      font-size: 10px;
+      font-size: 9px;
       color: var(--muted);
       text-align: center;
     }
@@ -393,8 +393,8 @@
     .shared-pick-cell {
       width: 100%;
       min-width: 0;
-      padding: 5px;
-      border-radius: 12px;
+      padding: 3px;
+      border-radius: 9px;
       border: 1px solid rgba(255,255,255,.06);
       background: rgba(255,255,255,.02);
     }
@@ -402,14 +402,14 @@
     .shared-pick-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 8px;
+      gap: 4px;
     }
 
     .shared-pick-btn {
       position: relative;
-      min-height: 52px;
-      padding: 6px 4px;
-      border-radius: 13px;
+      min-height: 38px;
+      padding: 3px 2px;
+      border-radius: 10px;
       border: 1px solid rgba(255,255,255,.08);
       background: #0d1525;
       color: var(--muted);
@@ -427,19 +427,19 @@
     }
 
     .shared-pick-btn .num {
-      font-size: clamp(16px, 1.8vw, 18px);
+      font-size: clamp(12px, 1.45vw, 14px);
       font-weight: 900;
       line-height: 1;
     }
 
     .shared-pick-btn .owner {
-      font-size: clamp(9px, 1.1vw, 10px);
+      font-size: clamp(7px, .95vw, 8px);
       line-height: 1.1;
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      min-height: 1.1em;
+      min-height: 1.0em;
     }
 
     .shared-pick-btn.claimed {
@@ -515,8 +515,8 @@
     }
 
     .kick-btn {
-      min-height: 30px;
-      padding: 0 10px;
+      min-height: 26px;
+      padding: 0 8px;
       border-radius: 9px;
       background: rgba(239,68,68,.14);
       color: #fca5a5;
@@ -562,9 +562,9 @@
     }
 
     @media (max-width: 720px) {
-      body { padding: 8px; }
-      .app { gap: 10px; }
-      .title { font-size: 20px; }
+      body { padding: 6px; }
+      .app { gap: 8px; }
+      .title { font-size: 18px; }
       .header, .compact-head, .board-toolbar {
         align-items: flex-start;
         flex-direction: column;
@@ -603,48 +603,48 @@
 
       .shared-floor-card {
         grid-template-columns: 1fr;
-        gap: 8px;
-        padding: 8px;
+        gap: 6px;
+        padding: 6px;
       }
 
       .floor-cell {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
-      }
-
-      .shared-pick-grid {
         gap: 6px;
       }
 
+      .shared-pick-grid {
+        gap: 4px;
+      }
+
       .shared-pick-btn {
-        min-height: 58px;
-        padding: 6px 3px;
+        min-height: 44px;
+        padding: 4px 2px;
       }
     }
 
     @media (max-width: 420px) {
       .player-box {
-        padding: 8px;
+        padding: 5px 6px;
       }
 
       .player-title {
-        font-size: 11px;
+        font-size: 9px;
       }
 
       .player-role {
-        font-size: 9px;
-        padding: 2px 5px;
+        font-size: 8px;
+        padding: 2px 4px;
       }
 
       .player-box input[type="text"] {
-        padding: 9px 10px;
-        font-size: 14px;
+        padding: 6px 8px;
+        font-size: 12px;
       }
 
       .help-line {
-        font-size: 10px;
+        font-size: 8px;
       }
 
       .copy-grid,
