@@ -850,7 +850,7 @@
     <section class="card board-card">
       <div class="board-toolbar">
         <h2 class="section-title" style="margin:0;">平台記錄</h2>
-        <div class="hint">單擊立即選數字｜連點兩下切換 X</div>
+        <div class="hint">單擊選數字｜手機長按 / 電腦右鍵切換 X</div>
       </div>
       <div class="board-scroll">
         <div class="matrix" id="boardBody"></div>
@@ -874,7 +874,7 @@
     const FLOORS = Array.from({ length: 10 }, (_, i) => i + 1);
     const DISPLAY_FLOORS = [...FLOORS].reverse();
 
-    const DOUBLE_TAP_MS = 280;
+    const LONG_PRESS_MS = 450;
     const RECONNECT_GRACE_MS = 600000; // 10 分鐘
     const AUTO_REJOIN_DELAY_MS = 1200;
     const RESUME_PROBE_TIMEOUT_MS = 4000;
@@ -956,9 +956,8 @@
 
     const tapActionState = {
       key: "",
-      at: 0,
-      previousValue: "",
-      optimisticApplied: false,
+      timer: null,
+      triggeredByHold: false,
       ignoreClickUntil: 0
     };
 
@@ -1125,10 +1124,12 @@
     }
 
     function clearTapActionState() {
+      if (tapActionState.timer) {
+        clearTimeout(tapActionState.timer);
+      }
       tapActionState.key = "";
-      tapActionState.at = 0;
-      tapActionState.previousValue = "";
-      tapActionState.optimisticApplied = false;
+      tapActionState.timer = null;
+      tapActionState.triggeredByHold = false;
     }
 
     function getInviteLink() {
@@ -1618,38 +1619,14 @@
       updateAnswer(mySlot, floor, nextValue);
     }
 
+    function toggleXMarkAction(floor, value) {
+      if (!value) return;
+      tapActionState.ignoreClickUntil = performance.now() + 500;
+      toggleLocalXMark(floor, value);
+    }
+
     function handlePickButtonPress(floor, value) {
       if (!value) return;
-
-      const key = `${floor}:${value}`;
-      const now = performance.now();
-      const isDoubleTap = tapActionState.key === key && (now - tapActionState.at) <= DOUBLE_TAP_MS;
-
-      if (isDoubleTap) {
-        const previousValue = tapActionState.previousValue;
-        const shouldRollback = tapActionState.optimisticApplied && mySlot && roomId;
-
-        tapActionState.ignoreClickUntil = now + 380;
-        clearTapActionState();
-
-        if (shouldRollback) {
-          updateAnswer(mySlot, floor, previousValue || "");
-        }
-
-        toggleLocalXMark(floor, value);
-        return;
-      }
-
-      tapActionState.key = key;
-      tapActionState.at = now;
-      tapActionState.previousValue = mySlot ? String(getAnswer(floor, mySlot) || "") : "";
-      tapActionState.optimisticApplied = false;
-
-      const ownerSlot = getSelectedSlotByValue(floor, value);
-      if (!roomId || !mySlot) return;
-      if (ownerSlot && ownerSlot !== mySlot) return;
-
-      tapActionState.optimisticApplied = true;
       runSinglePickAction(floor, value);
     }
 
@@ -2462,9 +2439,27 @@
     }
 
     function attachBoardEvents() {
-      dom.boardBody.addEventListener("click", (event) => {
+      const getBtnData = (event) => {
         const btn = event.target.closest('.shared-pick-btn[data-floor][data-value]');
-        if (!btn) return;
+        if (!btn) return null;
+        return {
+          btn,
+          floor: Number(btn.dataset.floor),
+          value: String(btn.dataset.value || "")
+        };
+      };
+
+      const cancelHold = () => {
+        if (tapActionState.timer) {
+          clearTimeout(tapActionState.timer);
+          tapActionState.timer = null;
+        }
+        tapActionState.key = "";
+      };
+
+      dom.boardBody.addEventListener("click", (event) => {
+        const data = getBtnData(event);
+        if (!data) return;
 
         const now = performance.now();
         if (tapActionState.ignoreClickUntil && now <= tapActionState.ignoreClickUntil) {
@@ -2474,18 +2469,38 @@
         }
 
         event.preventDefault();
-
-        const floor = Number(btn.dataset.floor);
-        const value = String(btn.dataset.value || "");
-        handlePickButtonPress(floor, value);
+        handlePickButtonPress(data.floor, data.value);
       });
 
-      dom.boardBody.addEventListener("dblclick", (event) => {
-        const btn = event.target.closest('.shared-pick-btn[data-floor][data-value]');
-        if (!btn) return;
+      dom.boardBody.addEventListener("contextmenu", (event) => {
+        const data = getBtnData(event);
+        if (!data) return;
         event.preventDefault();
         event.stopPropagation();
+        cancelHold();
+        toggleXMarkAction(data.floor, data.value);
       });
+
+      dom.boardBody.addEventListener("pointerdown", (event) => {
+        const data = getBtnData(event);
+        if (!data) return;
+
+        if (event.pointerType === "mouse") return;
+        if (event.pointerType === "pen") return;
+        if (event.button !== undefined && event.button !== 0) return;
+
+        cancelHold();
+        tapActionState.key = `${data.floor}:${data.value}`;
+        tapActionState.triggeredByHold = false;
+        tapActionState.timer = setTimeout(() => {
+          tapActionState.triggeredByHold = true;
+          toggleXMarkAction(data.floor, data.value);
+        }, LONG_PRESS_MS);
+      }, { passive: true });
+
+      dom.boardBody.addEventListener("pointerup", cancelHold, { passive: true });
+      dom.boardBody.addEventListener("pointerleave", cancelHold, { passive: true });
+      dom.boardBody.addEventListener("pointercancel", cancelHold, { passive: true });
     }
 
     dom.createRoomBtn.addEventListener("click", startHost);
