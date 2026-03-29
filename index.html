@@ -229,6 +229,16 @@
       gap: 8px;
     }
 
+    .room-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 8px;
+    }
+
+    .room-actions-grid .btn {
+      width: 100%;
+    }
+
     .btn {
       min-height: 36px;
       padding: 8px 10px;
@@ -252,7 +262,7 @@
 
     .players-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns: repeat(4, minmax(0,1fr));
       gap: 6px;
     }
 
@@ -352,20 +362,20 @@
 
     .shared-floor-card {
       display: grid;
-      grid-template-columns: 46px 1fr;
-      gap: 4px;
+      grid-template-columns: 48px 1fr;
+      gap: 5px;
       align-items: center;
-      padding: 4px;
+      padding: 5px;
       border: 1px solid var(--line);
       border-radius: 10px;
       background: var(--panel-2);
       content-visibility: auto;
-      contain-intrinsic-size: 42px;
+      contain-intrinsic-size: 52px;
     }
 
     .floor-cell {
       display: grid;
-      gap: 2px;
+      gap: 3px;
       justify-items: center;
     }
 
@@ -373,8 +383,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 30px;
-      padding: 2px 4px;
+      min-width: 32px;
+      padding: 3px 4px;
       border-radius: 999px;
       background: rgba(79, 140, 255, .14);
       border: 1px solid rgba(79, 140, 255, .22);
@@ -392,7 +402,7 @@
     .shared-pick-cell {
       width: 100%;
       min-width: 0;
-      padding: 2px;
+      padding: 3px;
       border-radius: 8px;
       border: 1px solid rgba(255,255,255,.06);
       background: rgba(255,255,255,.02);
@@ -401,13 +411,13 @@
     .shared-pick-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 2px;
+      gap: 3px;
     }
 
     .shared-pick-btn {
       position: relative;
-      min-height: 20px;
-      padding: 1px;
+      min-height: 28px;
+      padding: 2px 1px;
       border-radius: 8px;
       border: 1px solid rgba(255,255,255,.08);
       background: #0d1525;
@@ -415,7 +425,7 @@
       display: grid;
       align-content: center;
       justify-items: center;
-      gap: 0;
+      gap: 1px;
       text-align: center;
       user-select: none;
       -webkit-user-select: none;
@@ -426,13 +436,13 @@
     }
 
     .shared-pick-btn .num {
-      font-size: clamp(10px, 1.2vw, 12px);
+      font-size: clamp(11px, 1.3vw, 13px);
       font-weight: 900;
       line-height: 1;
     }
 
     .shared-pick-btn .owner {
-      font-size: clamp(6px, .75vw, 7px);
+      font-size: clamp(6px, .78vw, 7px);
       line-height: 1;
       max-width: 100%;
       overflow: hidden;
@@ -465,8 +475,8 @@
     .shared-pick-btn.x-marked::before {
       content: "";
       position: absolute;
-      top: 1px;
-      right: 1px;
+      top: 2px;
+      right: 2px;
       width: 10px;
       height: 10px;
       border-radius: 999px;
@@ -478,8 +488,8 @@
     .shared-pick-btn.x-marked::after {
       content: "✕";
       position: absolute;
-      top: 0;
-      right: 3px;
+      top: 1px;
+      right: 4px;
       font-size: 8px;
       line-height: 1;
       font-weight: 900;
@@ -573,7 +583,36 @@
       .inline-chips {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
-      .row-3, .row-2, .btn-grid, .players-grid, .copy-grid, .copy-tools-grid {
+      .players-grid {
+        grid-template-columns: repeat(4, minmax(0,1fr));
+        gap: 4px;
+      }
+      .player-box {
+        padding: 4px 4px;
+        border-radius: 10px;
+      }
+      .player-head {
+        gap: 3px;
+        margin-bottom: 3px;
+      }
+      .player-title {
+        font-size: 8px;
+        gap: 3px;
+      }
+      .player-role {
+        font-size: 7px;
+        padding: 1px 3px;
+      }
+      .player-box input[type="text"] {
+        padding: 5px 4px;
+        font-size: 11px;
+      }
+      .help-line {
+        font-size: 7px;
+        margin-top: 2px;
+        line-height: 1.15;
+      }
+      .row-3, .row-2, .btn-grid, .copy-grid, .copy-tools-grid, .room-actions-grid {
         grid-template-columns: 1fr 1fr;
       }
       .board-scroll {
@@ -593,7 +632,7 @@
         grid-template-columns: 42px 1fr;
       }
       .shared-pick-btn {
-        min-height: 24px;
+        min-height: 30px;
       }
     }
 
@@ -602,9 +641,34 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
+      .players-grid {
+        grid-template-columns: repeat(4, minmax(0,1fr));
+        gap: 3px;
+      }
+      .player-box {
+        padding: 3px;
+        border-radius: 9px;
+      }
+      .player-title {
+        font-size: 7px;
+      }
+      .player-role {
+        font-size: 6px;
+        padding: 1px 2px;
+      }
+      .player-box input[type="text"] {
+        padding: 4px 3px;
+        font-size: 10px;
+      }
+      .help-line {
+        font-size: 6px;
+        line-height: 1.1;
+      }
+
       .row-3,
       .row-2,
       .btn-grid,
+      .room-actions-grid,
       .presence-list {
         grid-template-columns: 1fr;
       }
@@ -627,8 +691,8 @@
       }
 
       .shared-pick-btn {
-        min-height: 22px;
-        padding: 1px;
+        min-height: 26px;
+        padding: 2px 1px;
       }
     }
 
@@ -694,7 +758,7 @@
       </div>
 
       <div class="stack">
-        <div class="row-3">
+        <div class="row-2">
           <div>
             <label class="label" for="nicknameInput">我的暱稱</label>
             <input id="nicknameInput" type="text" maxlength="20" placeholder="例如：隊長 / 主教" />
@@ -704,13 +768,10 @@
             <label class="label" for="roomInput">房號</label>
             <input id="roomInput" type="text" maxlength="40" placeholder="例如：RJ-8421" />
           </div>
-
-          <div style="display:flex;align-items:flex-end;">
-            <button class="btn secondary" id="copyRoomBtn" style="width:100%;">複製房號</button>
-          </div>
         </div>
 
-        <div class="btn-grid">
+        <div class="room-actions-grid">
+          <button class="btn secondary" id="copyRoomBtn">複製房號</button>
           <button class="btn" id="createRoomBtn">建立新房</button>
           <button class="btn secondary" id="joinRoomBtn">加入房間</button>
           <button class="btn secondary" id="copyLinkBtn">複製邀請連結</button>
