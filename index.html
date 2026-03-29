@@ -231,16 +231,12 @@
 
     .room-actions-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns: repeat(4, minmax(0,1fr));
       gap: 8px;
     }
 
     .room-actions-grid .btn {
       width: 100%;
-    }
-
-    .room-actions-grid .btn.span-2 {
-      grid-column: 1 / -1;
     }
 
     .btn {
@@ -375,6 +371,7 @@
       background: var(--panel-2);
       content-visibility: auto;
       contain-intrinsic-size: 52px;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
     }
 
     .floor-cell {
@@ -398,9 +395,7 @@
     }
 
     .floor-count {
-      font-size: 7px;
-      color: var(--muted);
-      text-align: center;
+      display: none;
     }
 
     .shared-pick-cell {
@@ -616,7 +611,7 @@
         margin-top: 2px;
         line-height: 1.15;
       }
-      .row-3, .row-2, .btn-grid, .copy-grid, .copy-tools-grid {
+      .row-3, .row-2, .btn-grid, .copy-grid, .copy-tools-grid, .room-actions-grid {
         grid-template-columns: 1fr 1fr;
       }
       .board-scroll {
@@ -664,45 +659,29 @@
         padding: 4px 3px;
         font-size: 10px;
       }
-      .row-2 .label {
-        font-size: 10px;
-        margin-bottom: 3px;
-      }
-      .row-2 input[type="text"] {
-        padding: 6px 7px;
-        font-size: 12px;
-      }
       .help-line {
         font-size: 6px;
         line-height: 1.1;
       }
 
       .row-3,
+      .row-2,
       .btn-grid,
+      .room-actions-grid,
       .presence-list {
         grid-template-columns: 1fr;
       }
 
-      .row-2 {
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-      }
-
-      .room-actions-grid {
-        grid-template-columns: repeat(2, minmax(0,1fr));
-      }
-
       .shared-floor-card {
-        grid-template-columns: 1fr;
+        grid-template-columns: 42px 1fr;
         gap: 4px;
         padding: 4px;
       }
 
       .floor-cell {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 6px;
+        display: grid;
+        gap: 2px;
+        justify-items: center;
       }
 
       .shared-pick-grid {
@@ -759,12 +738,58 @@
       }
     }
 
-    .player-box input[readonly] {
-      cursor: default;
-    }
-
     .player-box .label {
       display: none;
+    }
+
+    .player-box input[readonly] {
+      cursor: default;
+      opacity: 1;
+    }
+
+    .compact-head .hint:empty {
+      display: none;
+    }
+    
+.shared-floor-card.my-floor {
+      border-color: rgba(var(--slot-rgb, 79,140,255), 1);
+      box-shadow:
+        0 0 0 3px rgba(var(--slot-rgb, 79,140,255), .55),
+        0 0 0 6px rgba(var(--slot-rgb, 79,140,255), .14),
+        0 0 24px rgba(var(--slot-rgb, 79,140,255), .34),
+        inset 6px 0 0 rgba(var(--slot-rgb, 79,140,255), 1);
+      background:
+        linear-gradient(90deg,
+          rgba(var(--slot-rgb, 79,140,255), .28) 0%,
+          rgba(var(--slot-rgb, 79,140,255), .12) 28%,
+          rgba(255,255,255,.03) 100%);
+      transform: translateZ(0);
+    }
+
+    .shared-floor-card.my-floor .floor-badge {
+      border-color: rgba(var(--slot-rgb, 79,140,255), 1);
+      background: rgba(var(--slot-rgb, 79,140,255), .34);
+      color: #ffffff;
+      box-shadow:
+        0 0 0 2px rgba(var(--slot-rgb, 79,140,255), .22),
+        0 0 12px rgba(var(--slot-rgb, 79,140,255), .40);
+    }
+
+    .shared-floor-card.my-floor .shared-pick-cell {
+      border-color: rgba(var(--slot-rgb, 79,140,255), .36);
+      background: rgba(var(--slot-rgb, 79,140,255), .10);
+    }
+
+    
+    .shared-floor-card.my-floor .shared-pick-btn.mine {
+      box-shadow:
+        0 0 0 2px rgba(255,255,255,.38),
+        0 0 0 4px rgba(var(--slot-rgb, 79,140,255), .18),
+        0 6px 14px rgba(var(--slot-rgb, 79,140,255), .28);
+    }
+
+    .shared-floor-card.my-floor .shared-pick-btn.empty {
+      border-color: rgba(var(--slot-rgb, 79,140,255), .22);
     }
 
   </style>
@@ -799,34 +824,25 @@
 
         <div class="room-actions-grid">
           <button class="btn secondary" id="copyRoomBtn">複製房號</button>
-          <button class="btn secondary" id="copyLinkBtn">複製邀請連結</button>
           <button class="btn" id="createRoomBtn">建立新房</button>
           <button class="btn secondary" id="joinRoomBtn">加入房間</button>
-          <button class="btn danger span-2" id="disconnectBtn">離開房間</button>
+          <button class="btn secondary" id="copyLinkBtn">複製邀請連結</button>
+          <button class="btn danger" id="disconnectBtn">離開房間</button>
         </div>
 
         <div class="inline-chips">
-          <span class="status-pill">房間：<strong id="statusRoom">未加入</strong></span>
-          <span class="status-pill">角色：<strong id="statusRole">未加入</strong></span>
           <span class="status-pill">連線：<strong id="statusSync">尚未連線</strong></span>
           <span class="status-pill">人數：<strong id="statusPeers">0</strong></span>
           <span class="status-pill">更新：<strong id="lastUpdated">--</strong></span>
         </div>
-
-        <div class="presence-list" id="presenceList">
-          <span class="presence-chip">尚未加入房間</span>
-        </div>
-
-        <div class="help-line">
-          玩家加入後會自動分配唯一顏色；不可手動變更。
-        </div>
+        <div class="presence-list" id="presenceList"></div>
       </div>
     </section>
 
     <section class="card">
       <div class="compact-head">
         <h2 class="section-title" style="margin:0;">玩家欄位</h2>
-        <div class="hint">名稱可改｜顏色自動分配｜平台選位每層共用</div>
+        
       </div>
       <div class="players-grid" id="playerInputs"></div>
     </section>
@@ -1106,23 +1122,6 @@
       else localXMarks[key] = 1;
       saveLocalXMarks();
       renderBoard();
-    }
-
-    function clearAllLocalXMarks(shouldRender = true) {
-      localXMarks = {};
-      saveLocalXMarks();
-      if (shouldRender) renderBoard();
-    }
-
-    function broadcastClearXMarks() {
-      if (!isHost) return;
-      for (const { conn } of guestConnections.values()) {
-        if (conn && conn.open) {
-          try {
-            conn.send({ type: "CLEAR_XMARKS" });
-          } catch (_) {}
-        }
-      }
     }
 
     function clearTapActionState() {
@@ -1479,32 +1478,38 @@
     function renderStatus() {
       const displayRoom = getCurrentRoomDisplay();
 
-      dom.statusRoom.textContent = displayRoom || "未加入";
-      dom.statusRole.textContent = !displayRoom
-        ? "未加入"
-        : (isHost ? "房主" : (mySlot ? `成員 (${SLOT_META[mySlot].label})` : "加入中"));
-
-      if (!displayRoom) {
-        setStatusText(dom.statusSync, "尚未連線", "");
-      } else if (isHost) {
-        setStatusText(dom.statusSync, hostReady ? "房主待命中" : "建立中", hostReady ? "online" : "warn-text");
-      } else if (roomId && hostConn && hostConn.open) {
-        setStatusText(dom.statusSync, "已連上房主", "online");
-      } else {
-        setStatusText(dom.statusSync, "連線中 / 等待房主", "warn-text");
+      if (dom.statusRoom) dom.statusRoom.textContent = displayRoom || "未加入";
+      if (dom.statusRole) {
+        dom.statusRole.textContent = !displayRoom
+          ? "未加入"
+          : (isHost ? "房主" : (mySlot ? `成員 (${SLOT_META[mySlot].label})` : "加入中"));
       }
 
-      dom.statusPeers.textContent = String(getConnectedParticipants().length);
+      if (dom.statusSync) {
+        if (!displayRoom) {
+          setStatusText(dom.statusSync, "尚未連線", "");
+        } else if (isHost) {
+          setStatusText(dom.statusSync, hostReady ? "房主待命中" : "建立中", hostReady ? "online" : "warn-text");
+        } else if (roomId && hostConn && hostConn.open) {
+          setStatusText(dom.statusSync, "已連上房主", "online");
+        } else {
+          setStatusText(dom.statusSync, "連線中 / 等待房主", "warn-text");
+        }
+      }
 
-      if (state.updatedAt) {
-        dom.lastUpdated.textContent = new Date(state.updatedAt).toLocaleTimeString("zh-TW", {
-          hour12: false,
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit"
-        });
-      } else {
-        dom.lastUpdated.textContent = "--";
+      if (dom.statusPeers) dom.statusPeers.textContent = String(getConnectedParticipants().length);
+
+      if (dom.lastUpdated) {
+        if (state.updatedAt) {
+          dom.lastUpdated.textContent = new Date(state.updatedAt).toLocaleTimeString("zh-TW", {
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+          });
+        } else {
+          dom.lastUpdated.textContent = "--";
+        }
       }
 
       const inOrJoiningRoom = !!displayRoom;
@@ -1519,41 +1524,8 @@
     }
 
     function renderPresence() {
-      const list = getConnectedParticipants();
-
-      if (!list.length) {
-        dom.presenceList.innerHTML = '<span class="presence-chip">尚未加入房間</span>';
-        return;
-      }
-
+      if (!dom.presenceList) return;
       dom.presenceList.innerHTML = "";
-
-      list.forEach((participant) => {
-        const slot = participant.slot;
-        const wrapper = document.createElement("span");
-        wrapper.className =
-          `presence-chip${participant.isHost ? " host" : ""}${participant.online === false ? " offline" : ""}`;
-
-        const theme = getTheme(slot);
-        wrapper.style.borderColor = `rgba(${theme.rgb}, .34)`;
-        wrapper.style.background = `rgba(${theme.rgb}, .14)`;
-        wrapper.style.color = theme.color;
-
-        const offlineText = participant.online === false ? `｜暫離保留中（${getGraceText()}）` : "";
-        wrapper.textContent =
-          `${SLOT_META[slot].label}｜${participant.name}${slot === mySlot ? "（我）" : ""}${participant.isHost ? "｜房主" : ""}${offlineText}`;
-
-        if (isHost && !participant.isHost) {
-          const btn = document.createElement("button");
-          btn.className = "kick-btn";
-          btn.textContent = "移除";
-          btn.dataset.kickSlot = slot;
-          wrapper.appendChild(document.createTextNode(" "));
-          wrapper.appendChild(btn);
-        }
-
-        dom.presenceList.appendChild(wrapper);
-      });
     }
 
     function renderPlayers() {
@@ -1600,11 +1572,7 @@
             readonly
           />
 
-          <div class="help-line">
-            自動配色：${colorName(getColorKey(slot))}
-            ${participant ? `｜ID ${String(participant.peerId || "").slice(0, 8)}` : ""}
-            ${participant?.online === false ? `｜保留 ${getGraceText()}` : ""}
-          </div>
+          ${participant?.online === false ? `<div class="help-line">保留 ${getGraceText()}</div>` : ""}
         `;
 
         dom.playerInputs.appendChild(box);
@@ -1688,7 +1656,7 @@
     function renderBoard() {
       const rows = DISPLAY_FLOORS.map((floor) => {
         const selections = getFloorSelections(floor);
-        const count = Object.keys(selections).length;
+        const myFloorSelected = !!(mySlot && getAnswer(floor, mySlot));
 
         const buttons = [1, 2, 3, 4].map((n) => {
           const value = String(n);
@@ -1724,10 +1692,9 @@
         }).join("");
 
         return `
-          <div class="shared-floor-card">
+          <div class="shared-floor-card ${myFloorSelected ? "my-floor" : ""}" ${myFloorSelected ? `style="--slot-rgb:${(getTheme(mySlot) || {}).rgb || '79,140,255'}"` : ""}>
             <div class="floor-cell">
               <span class="floor-badge">${floor}F</span>
-              <span class="floor-count">${count}/4</span>
             </div>
             <div class="shared-pick-cell">
               <div class="shared-pick-grid">${buttons}</div>
@@ -2040,8 +2007,6 @@
 
       if (msg.type === "CLEAR_BOARD") {
         for (const slot of SLOT_KEYS) emptyAnswersForSlot(slot);
-        clearAllLocalXMarks(false);
-        broadcastClearXMarks();
         broadcastState();
         return;
       }
@@ -2133,11 +2098,6 @@
 
       if (msg.type === "ACTION_REJECT") {
         showToast(msg.reason || "此數字已被其他人選走");
-        return;
-      }
-
-      if (msg.type === "CLEAR_XMARKS") {
-        clearAllLocalXMarks();
         return;
       }
 
@@ -2238,8 +2198,6 @@
 
       if (isHost) {
         for (const slot of SLOT_KEYS) emptyAnswersForSlot(slot);
-        clearAllLocalXMarks(false);
-        broadcastClearXMarks();
         broadcastState();
       } else {
         sendToHost({ type: "CLEAR_BOARD" });
