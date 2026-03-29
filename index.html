@@ -39,18 +39,19 @@
     body { padding: 10px; }
 
     .app {
-      max-width: 860px;
+      max-width: 980px;
       margin: 0 auto;
       display: grid;
-      gap: 10px;
+      gap: 12px;
+      padding-bottom: calc(110px + env(safe-area-inset-bottom));
     }
 
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 18px;
       box-shadow: var(--shadow);
-      padding: 12px;
+      padding: 14px;
     }
 
     .header {
@@ -75,10 +76,16 @@
       line-height: 1.4;
     }
 
-    .mini-chips, .inline-chips, .presence-list {
+    .mini-chips, .presence-list {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
+    }
+
+    .inline-chips {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
     }
 
     .mini-chips { justify-content: flex-end; }
@@ -91,6 +98,33 @@
       background: rgba(79, 140, 255, .12);
       color: #dbeafe;
       white-space: nowrap;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 38px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      white-space: normal;
+    }
+
+    .presence-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+    }
+
+    .presence-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 40px;
+      border-radius: 12px;
+      white-space: normal;
     }
 
     .status-pill strong.online { color: #86efac; }
@@ -272,36 +306,61 @@
       line-height: 1.45;
     }
 
-    .board-card { padding: 10px; }
+    .board-card {
+      padding: 12px;
+      position: relative;
+      overflow: hidden;
+    }
 
     .board-toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      padding-bottom: 10px;
+      background: linear-gradient(180deg, rgba(17,26,43,.98) 0%, rgba(17,26,43,.94) 82%, rgba(17,26,43,0) 100%);
+      backdrop-filter: blur(8px);
     }
 
     .board-scroll {
       display: grid;
       gap: 8px;
+      max-height: min(68vh, 760px);
+      overflow: auto;
+      padding-right: 2px;
+      overscroll-behavior: contain;
+    }
+
+    .board-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .board-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,.14);
+      border-radius: 999px;
     }
 
     .matrix {
       min-width: 0;
       display: grid;
-      gap: 8px;
+      gap: 10px;
     }
 
     .shared-floor-card {
       display: grid;
-      grid-template-columns: 62px 1fr;
-      gap: 8px;
+      grid-template-columns: 68px 1fr;
+      gap: 10px;
       align-items: center;
-      padding: 8px;
+      padding: 10px;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 16px;
       background: var(--panel-2);
+      content-visibility: auto;
+      contain-intrinsic-size: 88px;
     }
 
     .floor-cell {
@@ -342,14 +401,14 @@
     .shared-pick-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 6px;
+      gap: 8px;
     }
 
     .shared-pick-btn {
       position: relative;
-      min-height: 46px;
+      min-height: 52px;
       padding: 6px 4px;
-      border-radius: 11px;
+      border-radius: 13px;
       border: 1px solid rgba(255,255,255,.08);
       background: #0d1525;
       color: var(--muted);
@@ -367,13 +426,13 @@
     }
 
     .shared-pick-btn .num {
-      font-size: 15px;
+      font-size: clamp(16px, 1.8vw, 18px);
       font-weight: 900;
       line-height: 1;
     }
 
     .shared-pick-btn .owner {
-      font-size: 10px;
+      font-size: clamp(9px, 1.1vw, 10px);
       line-height: 1.1;
       max-width: 100%;
       overflow: hidden;
@@ -441,6 +500,14 @@
       gap: 8px;
     }
 
+    .action-card {
+      position: sticky;
+      bottom: max(10px, env(safe-area-inset-bottom));
+      z-index: 6;
+      background: rgba(17,26,43,.92);
+      backdrop-filter: blur(10px);
+    }
+
     .kick-btn {
       min-height: 30px;
       padding: 0 10px;
@@ -474,43 +541,82 @@
       transform: translateX(-50%) translateY(0);
     }
 
-    @media (max-width: 720px) {
-      body { padding: 8px; }
-      .title { font-size: 20px; }
-      .header { align-items: flex-start; flex-direction: column; }
-      .mini-chips { justify-content: flex-start; }
-      .row-3, .row-2, .btn-grid, .quick-actions {
+    @media (max-width: 900px) {
+      .inline-chips {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .row-3 {
         grid-template-columns: 1fr 1fr;
       }
-      .players-grid {
-        grid-template-columns: 1fr 1fr;
+
+      .row-3 > div:last-child {
+        grid-column: 1 / -1;
       }
     }
 
-    @media (max-width: 520px) {
-      .row-3, .row-2, .btn-grid, .quick-actions {
-        grid-template-columns: 1fr;
+    @media (max-width: 720px) {
+      body { padding: 8px; }
+      .app { gap: 10px; }
+      .title { font-size: 20px; }
+      .header, .compact-head, .board-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
       }
-      .players-grid {
+      .mini-chips { justify-content: flex-start; }
+      .hint { white-space: normal; }
+      .inline-chips {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .row-3, .row-2, .btn-grid, .quick-actions, .players-grid {
         grid-template-columns: 1fr 1fr;
       }
+      .board-scroll {
+        max-height: none;
+        overflow: visible;
+      }
+      .board-toolbar {
+        position: static;
+        padding-bottom: 0;
+        background: none;
+        backdrop-filter: none;
+      }
+      .action-card {
+        bottom: max(8px, env(safe-area-inset-bottom));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .inline-chips,
+      .row-3,
+      .row-2,
+      .btn-grid,
+      .quick-actions,
+      .players-grid,
+      .presence-list {
+        grid-template-columns: 1fr;
+      }
+
       .shared-floor-card {
-        grid-template-columns: 54px 1fr;
-        gap: 6px;
-        padding: 7px;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 8px;
       }
+
+      .floor-cell {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
       .shared-pick-grid {
-        gap: 4px;
+        gap: 6px;
       }
+
       .shared-pick-btn {
-        min-height: 42px;
-        padding: 5px 3px;
-      }
-      .shared-pick-btn .num {
-        font-size: 14px;
-      }
-      .shared-pick-btn .owner {
-        font-size: 9px;
+        min-height: 58px;
+        padding: 6px 3px;
       }
     }
   </style>
@@ -583,14 +689,14 @@
     <section class="card board-card">
       <div class="board-toolbar">
         <h2 class="section-title" style="margin:0;">平台記錄</h2>
-        <div class="hint">單擊選數字｜雙擊 / 雙點可切換 X 註記</div>
+        <div class="hint">單擊立即選數字｜連點兩下切換 X</div>
       </div>
       <div class="board-scroll">
         <div class="matrix" id="boardBody"></div>
       </div>
     </section>
 
-    <section class="card">
+    <section class="card action-card">
       <h2 class="section-title">單人複製</h2>
       <div class="quick-actions" id="copyPlayerActions"></div>
       <div class="quick-actions" style="margin-top:8px;">
@@ -689,8 +795,7 @@
 
     const tapActionState = {
       key: "",
-      timer: null,
-      payload: null
+      at: 0
     };
 
     function getOrCreateClientId() {
@@ -856,10 +961,8 @@
     }
 
     function clearTapActionState() {
-      if (tapActionState.timer) clearTimeout(tapActionState.timer);
       tapActionState.key = "";
-      tapActionState.timer = null;
-      tapActionState.payload = null;
+      tapActionState.at = 0;
     }
 
     function getInviteLink() {
@@ -1389,26 +1492,18 @@
       if (!value) return;
 
       const key = `${floor}:${value}`;
+      const now = performance.now();
+      const isDoubleTap = tapActionState.key === key && (now - tapActionState.at) <= DOUBLE_TAP_MS;
 
-      if (tapActionState.timer && tapActionState.key === key) {
-        clearTapActionState();
+      tapActionState.key = key;
+      tapActionState.at = now;
+
+      if (isDoubleTap) {
         toggleLocalXMark(floor, value);
         return;
       }
 
-      if (tapActionState.timer && tapActionState.payload) {
-        const prev = { ...tapActionState.payload };
-        clearTapActionState();
-        runSinglePickAction(prev.floor, prev.value);
-      }
-
-      tapActionState.key = key;
-      tapActionState.payload = { floor, value };
-      tapActionState.timer = setTimeout(() => {
-        const pending = tapActionState.payload;
-        clearTapActionState();
-        if (pending) runSinglePickAction(pending.floor, pending.value);
-      }, DOUBLE_TAP_MS);
+      runSinglePickAction(floor, value);
     }
 
     function renderBoard() {
@@ -1463,20 +1558,6 @@
       }).join("");
 
       dom.boardBody.innerHTML = rows;
-
-      dom.boardBody.querySelectorAll(".shared-pick-btn[data-floor][data-value]").forEach((btn) => {
-        const floor = Number(btn.dataset.floor);
-        const value = String(btn.dataset.value || "");
-
-        btn.addEventListener("click", (event) => {
-          event.preventDefault();
-          handlePickButtonPress(floor, value);
-        });
-
-        btn.addEventListener("dblclick", (event) => {
-          event.preventDefault();
-        });
-      });
     }
 
     function refreshAll() {
@@ -2234,6 +2315,25 @@
       });
     }
 
+    function attachBoardEvents() {
+      dom.boardBody.addEventListener("click", (event) => {
+        const btn = event.target.closest('.shared-pick-btn[data-floor][data-value]');
+        if (!btn) return;
+
+        event.preventDefault();
+
+        const floor = Number(btn.dataset.floor);
+        const value = String(btn.dataset.value || "");
+        handlePickButtonPress(floor, value);
+      });
+
+      dom.boardBody.addEventListener("dblclick", (event) => {
+        const btn = event.target.closest('.shared-pick-btn[data-floor][data-value]');
+        if (!btn) return;
+        event.preventDefault();
+      });
+    }
+
     dom.createRoomBtn.addEventListener("click", startHost);
     dom.joinRoomBtn.addEventListener("click", () => startJoin(false));
     dom.copyLinkBtn.addEventListener("click", handleCopyLink);
@@ -2268,6 +2368,7 @@
     restoreLocalPrefs();
     restoreFromHash();
     attachGlobalKickActions();
+    attachBoardEvents();
     bindResumeRecovery();
     requestAnimationFrame(() => refreshAll());
   </script>
