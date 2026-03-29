@@ -85,15 +85,16 @@
     .inline-chips {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 8px;
+      gap: 6px;
+      align-items: stretch;
     }
 
     .mini-chips { justify-content: flex-end; }
 
     .chip, .status-pill, .presence-chip {
-      padding: 5px 9px;
-      border-radius: 999px;
-      font-size: 10px;
+      padding: 4px 7px;
+      border-radius: 10px;
+      font-size: 9px;
       border: 1px solid rgba(79, 140, 255, .2);
       background: rgba(79, 140, 255, .12);
       color: #dbeafe;
@@ -104,11 +105,18 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
-      min-height: 32px;
-      padding: 6px 8px;
-      border-radius: 10px;
-      white-space: normal;
+      gap: 4px;
+      min-height: 28px;
+      padding: 4px 7px;
+      border-radius: 9px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .status-pill strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .presence-list {
@@ -329,44 +337,35 @@
 
     .board-scroll {
       display: grid;
-      gap: 6px;
-      max-height: min(62vh, 680px);
-      overflow: auto;
-      padding-right: 2px;
-      overscroll-behavior: contain;
-    }
-
-    .board-scroll::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .board-scroll::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,.14);
-      border-radius: 999px;
+      gap: 4px;
+      max-height: none;
+      overflow: visible;
+      padding-right: 0;
+      overscroll-behavior: auto;
     }
 
     .matrix {
       min-width: 0;
       display: grid;
-      gap: 6px;
+      gap: 4px;
     }
 
     .shared-floor-card {
       display: grid;
-      grid-template-columns: 54px 1fr;
-      gap: 6px;
+      grid-template-columns: 46px 1fr;
+      gap: 4px;
       align-items: center;
-      padding: 6px;
+      padding: 4px;
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 10px;
       background: var(--panel-2);
       content-visibility: auto;
-      contain-intrinsic-size: 66px;
+      contain-intrinsic-size: 42px;
     }
 
     .floor-cell {
       display: grid;
-      gap: 4px;
+      gap: 2px;
       justify-items: center;
     }
 
@@ -374,18 +373,18 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 36px;
-      padding: 3px 5px;
+      min-width: 30px;
+      padding: 2px 4px;
       border-radius: 999px;
       background: rgba(79, 140, 255, .14);
       border: 1px solid rgba(79, 140, 255, .22);
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 900;
       color: #e8f0ff;
     }
 
     .floor-count {
-      font-size: 9px;
+      font-size: 7px;
       color: var(--muted);
       text-align: center;
     }
@@ -393,8 +392,8 @@
     .shared-pick-cell {
       width: 100%;
       min-width: 0;
-      padding: 3px;
-      border-radius: 9px;
+      padding: 2px;
+      border-radius: 8px;
       border: 1px solid rgba(255,255,255,.06);
       background: rgba(255,255,255,.02);
     }
@@ -402,21 +401,21 @@
     .shared-pick-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 4px;
+      gap: 2px;
     }
 
     .shared-pick-btn {
       position: relative;
-      min-height: 38px;
-      padding: 3px 2px;
-      border-radius: 10px;
+      min-height: 20px;
+      padding: 1px;
+      border-radius: 8px;
       border: 1px solid rgba(255,255,255,.08);
       background: #0d1525;
       color: var(--muted);
       display: grid;
       align-content: center;
       justify-items: center;
-      gap: 2px;
+      gap: 0;
       text-align: center;
       user-select: none;
       -webkit-user-select: none;
@@ -427,30 +426,30 @@
     }
 
     .shared-pick-btn .num {
-      font-size: clamp(12px, 1.45vw, 14px);
+      font-size: clamp(10px, 1.2vw, 12px);
       font-weight: 900;
       line-height: 1;
     }
 
     .shared-pick-btn .owner {
-      font-size: clamp(7px, .95vw, 8px);
-      line-height: 1.1;
+      font-size: clamp(6px, .75vw, 7px);
+      line-height: 1;
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      min-height: 1.0em;
+      min-height: .95em;
     }
 
     .shared-pick-btn.claimed {
       color: white;
       border-color: rgba(255,255,255,.16);
       background: linear-gradient(180deg, var(--slot-color, #8b5cf6), var(--slot-color-2, #7c3aed));
-      box-shadow: 0 6px 14px rgba(var(--slot-rgb, 139,92,246), .25);
+      box-shadow: 0 3px 8px rgba(var(--slot-rgb, 139,92,246), .18);
     }
 
     .shared-pick-btn.mine {
-      box-shadow: 0 0 0 2px rgba(255,255,255,.2), 0 6px 14px rgba(var(--slot-rgb, 139,92,246), .25);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.2), 0 3px 8px rgba(var(--slot-rgb, 139,92,246), .18);
     }
 
     .shared-pick-btn.locked {
@@ -466,27 +465,27 @@
     .shared-pick-btn.x-marked::before {
       content: "";
       position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 16px;
-      height: 16px;
+      top: 1px;
+      right: 1px;
+      width: 10px;
+      height: 10px;
       border-radius: 999px;
       background: rgba(239, 68, 68, .96);
-      box-shadow: 0 2px 6px rgba(0,0,0,.28);
+      box-shadow: 0 1px 3px rgba(0,0,0,.22);
       z-index: 2;
     }
 
     .shared-pick-btn.x-marked::after {
       content: "✕";
       position: absolute;
-      top: 3px;
-      right: 8px;
-      font-size: 11px;
+      top: 0;
+      right: 3px;
+      font-size: 8px;
       line-height: 1;
       font-weight: 900;
       color: #fff;
       z-index: 3;
-      text-shadow: 0 1px 2px rgba(0,0,0,.35);
+      text-shadow: 0 1px 1px rgba(0,0,0,.35);
       pointer-events: none;
     }
 
@@ -572,7 +571,7 @@
       .mini-chips { justify-content: flex-start; }
       .hint { white-space: normal; }
       .inline-chips {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
       .row-3, .row-2, .btn-grid, .players-grid, .copy-grid, .copy-tools-grid {
         grid-template-columns: 1fr 1fr;
@@ -590,10 +589,19 @@
       .copy-card {
         position: static;
       }
+      .shared-floor-card {
+        grid-template-columns: 42px 1fr;
+      }
+      .shared-pick-btn {
+        min-height: 24px;
+      }
     }
 
     @media (max-width: 560px) {
-      .inline-chips,
+      .inline-chips {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
       .row-3,
       .row-2,
       .btn-grid,
@@ -603,8 +611,8 @@
 
       .shared-floor-card {
         grid-template-columns: 1fr;
-        gap: 6px;
-        padding: 6px;
+        gap: 4px;
+        padding: 4px;
       }
 
       .floor-cell {
@@ -615,12 +623,12 @@
       }
 
       .shared-pick-grid {
-        gap: 4px;
+        gap: 2px;
       }
 
       .shared-pick-btn {
-        min-height: 44px;
-        padding: 4px 2px;
+        min-height: 22px;
+        padding: 1px;
       }
     }
 
@@ -657,6 +665,14 @@
         min-height: 44px;
         padding: 9px 8px;
         font-size: 13px;
+      }
+    }
+
+  
+    @media (min-width: 721px) {
+      .board-scroll {
+        max-height: none !important;
+        overflow: visible !important;
       }
     }
 
