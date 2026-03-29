@@ -664,16 +664,28 @@
         padding: 4px 3px;
         font-size: 10px;
       }
+      .row-2 .label {
+        font-size: 10px;
+        margin-bottom: 3px;
+      }
+      .row-2 input[type="text"] {
+        padding: 6px 7px;
+        font-size: 12px;
+      }
       .help-line {
         font-size: 6px;
         line-height: 1.1;
       }
 
       .row-3,
-      .row-2,
       .btn-grid,
       .presence-list {
         grid-template-columns: 1fr;
+      }
+
+      .row-2 {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
       }
 
       .room-actions-grid {
@@ -745,6 +757,14 @@
         max-height: none !important;
         overflow: visible !important;
       }
+    }
+
+    .player-box input[readonly] {
+      cursor: default;
+    }
+
+    .player-box .label {
+      display: none;
     }
 
   </style>
@@ -1571,14 +1591,13 @@
             <div class="player-role ${roleClass}">${headRole}</div>
           </div>
 
-          <label class="label" for="name-${slot}">顯示名稱</label>
           <input
             id="name-${slot}"
             type="text"
             maxlength="20"
             value="${participant ? escapeHtml(participant.name) : ""}"
             placeholder="${meta.label}"
-            ${canEdit ? "" : "readonly"}
+            readonly
           />
 
           <div class="help-line">
@@ -1591,11 +1610,7 @@
         dom.playerInputs.appendChild(box);
 
         const input = box.querySelector(`#name-${slot}`);
-        input.addEventListener("change", () => {
-          const next = sanitizeNick(input.value) || meta.label;
-          input.value = next;
-          renameSlot(slot, next);
-        });
+        input.setAttribute("readonly", "readonly");
       });
     }
 
