@@ -231,12 +231,16 @@
 
     .room-actions-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
+      grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 8px;
     }
 
     .room-actions-grid .btn {
       width: 100%;
+    }
+
+    .room-actions-grid .btn.span-2 {
+      grid-column: 1 / -1;
     }
 
     .btn {
@@ -612,7 +616,7 @@
         margin-top: 2px;
         line-height: 1.15;
       }
-      .row-3, .row-2, .btn-grid, .copy-grid, .copy-tools-grid, .room-actions-grid {
+      .row-3, .row-2, .btn-grid, .copy-grid, .copy-tools-grid {
         grid-template-columns: 1fr 1fr;
       }
       .board-scroll {
@@ -668,9 +672,12 @@
       .row-3,
       .row-2,
       .btn-grid,
-      .room-actions-grid,
       .presence-list {
         grid-template-columns: 1fr;
+      }
+
+      .room-actions-grid {
+        grid-template-columns: repeat(2, minmax(0,1fr));
       }
 
       .shared-floor-card {
@@ -772,10 +779,10 @@
 
         <div class="room-actions-grid">
           <button class="btn secondary" id="copyRoomBtn">複製房號</button>
+          <button class="btn secondary" id="copyLinkBtn">複製邀請連結</button>
           <button class="btn" id="createRoomBtn">建立新房</button>
           <button class="btn secondary" id="joinRoomBtn">加入房間</button>
-          <button class="btn secondary" id="copyLinkBtn">複製邀請連結</button>
-          <button class="btn danger" id="disconnectBtn">離開房間</button>
+          <button class="btn danger span-2" id="disconnectBtn">離開房間</button>
         </div>
 
         <div class="inline-chips">
@@ -1079,6 +1086,23 @@
       else localXMarks[key] = 1;
       saveLocalXMarks();
       renderBoard();
+    }
+
+    function clearAllLocalXMarks(shouldRender = true) {
+      localXMarks = {};
+      saveLocalXMarks();
+      if (shouldRender) renderBoard();
+    }
+
+    function broadcastClearXMarks() {
+      if (!isHost) return;
+      for (const { conn } of guestConnections.values()) {
+        if (conn && conn.open) {
+          try {
+            conn.send({ type: "CLEAR_XMARKS" });
+          } catch (_) {}
+        }
+      }
     }
 
     function clearTapActionState() {
@@ -2001,6 +2025,8 @@
 
       if (msg.type === "CLEAR_BOARD") {
         for (const slot of SLOT_KEYS) emptyAnswersForSlot(slot);
+        clearAllLocalXMarks(false);
+        broadcastClearXMarks();
         broadcastState();
         return;
       }
@@ -2092,6 +2118,11 @@
 
       if (msg.type === "ACTION_REJECT") {
         showToast(msg.reason || "此數字已被其他人選走");
+        return;
+      }
+
+      if (msg.type === "CLEAR_XMARKS") {
+        clearAllLocalXMarks();
         return;
       }
 
@@ -2192,6 +2223,8 @@
 
       if (isHost) {
         for (const slot of SLOT_KEYS) emptyAnswersForSlot(slot);
+        clearAllLocalXMarks(false);
+        broadcastClearXMarks();
         broadcastState();
       } else {
         sendToHost({ type: "CLEAR_BOARD" });
