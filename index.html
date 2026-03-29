@@ -244,15 +244,16 @@
 
     .players-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px;
     }
 
     .player-box {
       background: var(--panel-2);
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 8px;
+      border-radius: 14px;
+      padding: 10px;
+      min-width: 0;
     }
 
     .player-head {
@@ -494,18 +495,23 @@
       cursor: not-allowed;
     }
 
-    .quick-actions {
+    .copy-grid,
+    .copy-tools-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
       gap: 8px;
     }
 
-    .action-card {
-      position: sticky;
-      bottom: max(10px, env(safe-area-inset-bottom));
-      z-index: 6;
-      background: rgba(17,26,43,.92);
-      backdrop-filter: blur(10px);
+    .copy-card {
+      position: static;
+      bottom: auto;
+      z-index: auto;
+      background: var(--panel);
+      backdrop-filter: none;
+    }
+
+    .copy-btn {
+      min-height: 48px;
     }
 
     .kick-btn {
@@ -568,7 +574,7 @@
       .inline-chips {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
-      .row-3, .row-2, .btn-grid, .quick-actions, .players-grid {
+      .row-3, .row-2, .btn-grid, .players-grid, .copy-grid, .copy-tools-grid {
         grid-template-columns: 1fr 1fr;
       }
       .board-scroll {
@@ -581,8 +587,8 @@
         background: none;
         backdrop-filter: none;
       }
-      .action-card {
-        bottom: max(8px, env(safe-area-inset-bottom));
+      .copy-card {
+        position: static;
       }
     }
 
@@ -591,8 +597,6 @@
       .row-3,
       .row-2,
       .btn-grid,
-      .quick-actions,
-      .players-grid,
       .presence-list {
         grid-template-columns: 1fr;
       }
@@ -619,6 +623,43 @@
         padding: 6px 3px;
       }
     }
+
+    @media (max-width: 420px) {
+      .player-box {
+        padding: 8px;
+      }
+
+      .player-title {
+        font-size: 11px;
+      }
+
+      .player-role {
+        font-size: 9px;
+        padding: 2px 5px;
+      }
+
+      .player-box input[type="text"] {
+        padding: 9px 10px;
+        font-size: 14px;
+      }
+
+      .help-line {
+        font-size: 10px;
+      }
+
+      .copy-grid,
+      .copy-tools-grid {
+        gap: 6px;
+      }
+
+      .copy-btn,
+      .copy-tools-grid .btn {
+        min-height: 44px;
+        padding: 9px 8px;
+        font-size: 13px;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -696,10 +737,10 @@
       </div>
     </section>
 
-    <section class="card action-card">
+    <section class="card copy-card">
       <h2 class="section-title">單人複製</h2>
-      <div class="quick-actions" id="copyPlayerActions"></div>
-      <div class="quick-actions" style="margin-top:8px;">
+      <div class="copy-grid" id="copyPlayerActions"></div>
+      <div class="copy-tools-grid" style="margin-top:8px;">
         <button class="btn warn" id="clearBoardBtn">清空本房答案</button>
         <button class="btn secondary" id="reconnectBtn">重新整理房間狀態</button>
       </div>
@@ -795,7 +836,10 @@
 
     const tapActionState = {
       key: "",
-      at: 0
+      at: 0,
+      previousValue: "",
+      optimisticApplied: false,
+      ignoreClickUntil: 0
     };
 
     function getOrCreateClientId() {
@@ -963,6 +1007,8 @@
     function clearTapActionState() {
       tapActionState.key = "";
       tapActionState.at = 0;
+      tapActionState.previousValue = "";
+      tapActionState.optimisticApplied = false;
     }
 
     function getInviteLink() {
@@ -1457,7 +1503,7 @@
 
       SLOT_KEYS.forEach((slot) => {
         const btn = document.createElement("button");
-        btn.className = "btn secondary";
+        btn.className = "btn secondary copy-btn";
         btn.textContent = `複製 ${getSlotName(slot)}`;
         btn.disabled = !state.participants[slot];
 
@@ -1495,14 +1541,31 @@
       const now = performance.now();
       const isDoubleTap = tapActionState.key === key && (now - tapActionState.at) <= DOUBLE_TAP_MS;
 
-      tapActionState.key = key;
-      tapActionState.at = now;
-
       if (isDoubleTap) {
+        const previousValue = tapActionState.previousValue;
+        const shouldRollback = tapActionState.optimisticApplied && mySlot && roomId;
+
+        tapActionState.ignoreClickUntil = now + 380;
+        clearTapActionState();
+
+        if (shouldRollback) {
+          updateAnswer(mySlot, floor, previousValue || "");
+        }
+
         toggleLocalXMark(floor, value);
         return;
       }
 
+      tapActionState.key = key;
+      tapActionState.at = now;
+      tapActionState.previousValue = mySlot ? String(getAnswer(floor, mySlot) || "") : "";
+      tapActionState.optimisticApplied = false;
+
+      const ownerSlot = getSelectedSlotByValue(floor, value);
+      if (!roomId || !mySlot) return;
+      if (ownerSlot && ownerSlot !== mySlot) return;
+
+      tapActionState.optimisticApplied = true;
       runSinglePickAction(floor, value);
     }
 
@@ -2320,6 +2383,13 @@
         const btn = event.target.closest('.shared-pick-btn[data-floor][data-value]');
         if (!btn) return;
 
+        const now = performance.now();
+        if (tapActionState.ignoreClickUntil && now <= tapActionState.ignoreClickUntil) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+
         event.preventDefault();
 
         const floor = Number(btn.dataset.floor);
@@ -2331,6 +2401,7 @@
         const btn = event.target.closest('.shared-pick-btn[data-floor][data-value]');
         if (!btn) return;
         event.preventDefault();
+        event.stopPropagation();
       });
     }
 
